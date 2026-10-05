@@ -19,6 +19,23 @@
       </div>
     </header>
 
+    <form id="rename-form" class="header-dialog panel" hidden>
+      <label for="rename-input" class="label">Name your knight</label>
+      <div class="dialog-row">
+        <input id="rename-input" type="text" maxlength="24" autocomplete="off" required />
+        <button type="submit" class="btn btn-primary">Save name</button>
+        <button type="button" id="rename-cancel" class="btn">Cancel</button>
+      </div>
+    </form>
+
+    <div id="reset-confirm" class="header-dialog panel danger-dialog" role="alertdialog" aria-labelledby="reset-text" hidden>
+      <p id="reset-text">Wipe all Ruin Wars progress in this browser? This can't be undone.</p>
+      <div class="dialog-row">
+        <button type="button" id="reset-yes" class="btn btn-danger">Wipe save</button>
+        <button type="button" id="reset-cancel" class="btn">Keep playing</button>
+      </div>
+    </div>
+
     <section class="stats panel" aria-label="Player stats">
       <div class="stat-name">
         <span class="label">Knight</span>

@@ -2658,19 +2658,48 @@
     render();
   }
 
-  function renamePlayer() {
-    const next = window.prompt("Name your knight:", state.name);
-    if (next === null) return;
-    const trimmed = String(next).trim().slice(0, 24);
-    if (!trimmed) return;
+  // Rename / reset use in-page forms: hosted pages (e.g. Claude artifacts) block prompt() / confirm().
+
+  function closeHeaderDialogs() {
+    el.renameForm.hidden = true;
+    el.resetConfirm.hidden = true;
+  }
+
+  function openRename() {
+    const wasOpen = !el.renameForm.hidden;
+    closeHeaderDialogs();
+    if (wasOpen) return;
+    el.renameForm.hidden = false;
+    el.renameInput.value = state.name;
+    el.renameInput.focus();
+    el.renameInput.select();
+  }
+
+  function submitRename(ev) {
+    ev.preventDefault();
+    const trimmed = String(el.renameInput.value).trim().slice(0, 24);
+    if (!trimmed) {
+      el.renameInput.focus();
+      return;
+    }
+    closeHeaderDialogs();
+    if (trimmed === state.name) return;
     state.name = trimmed;
     addLog("You are known as " + state.name + ".");
     save();
     render();
   }
 
+  function openResetConfirm() {
+    const wasOpen = !el.resetConfirm.hidden;
+    closeHeaderDialogs();
+    if (wasOpen) return;
+    el.resetConfirm.hidden = false;
+    el.resetCancel.focus();
+  }
+
   function resetGame() {
-    if (!window.confirm("Reset all Ruin Wars progress in this browser?")) return;
+    closeHeaderDialogs();
     state = defaultState();
     logLines = [];
     addLog("A new knight takes up the quest.");
@@ -2802,6 +2831,12 @@
     legendsList: document.getElementById("legends-list"),
     btnRename: document.getElementById("btn-rename"),
     btnReset: document.getElementById("btn-reset"),
+    renameForm: document.getElementById("rename-form"),
+    renameInput: document.getElementById("rename-input"),
+    renameCancel: document.getElementById("rename-cancel"),
+    resetConfirm: document.getElementById("reset-confirm"),
+    resetYes: document.getElementById("reset-yes"),
+    resetCancel: document.getElementById("reset-cancel"),
   };
 
   // --- In-place DOM patching ---
@@ -3857,8 +3892,15 @@
 
   // --- Boot ---
 
-  el.btnRename.addEventListener("click", renamePlayer);
-  el.btnReset.addEventListener("click", resetGame);
+  el.btnRename.addEventListener("click", openRename);
+  el.btnReset.addEventListener("click", openResetConfirm);
+  el.renameForm.addEventListener("submit", submitRename);
+  el.renameCancel.addEventListener("click", closeHeaderDialogs);
+  el.resetYes.addEventListener("click", resetGame);
+  el.resetCancel.addEventListener("click", closeHeaderDialogs);
+  document.addEventListener("keydown", function (ev) {
+    if (ev.key === "Escape") closeHeaderDialogs();
+  });
   document.addEventListener("click", onActionClick);
   // Tick saves are throttled, so flush whenever the page may go away.
   document.addEventListener("visibilitychange", function () {

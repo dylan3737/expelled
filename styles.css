@@ -82,6 +82,59 @@ body {
   flex-shrink: 0;
 }
 
+.header-dialog {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.header-dialog[hidden] {
+  display: none;
+}
+
+.header-dialog p {
+  margin: 0;
+}
+
+.dialog-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.dialog-row input {
+  flex: 1 1 12rem;
+  min-width: 0;
+  font: inherit;
+  padding: 0.4rem 0.6rem;
+  color: var(--text);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.dialog-row input:focus,
+.btn:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 1px;
+}
+
+.panel.danger-dialog {
+  border-color: var(--danger);
+}
+
+.btn.btn-danger {
+  background: #3a1818;
+  border-color: var(--danger);
+  color: #f0c0c0;
+}
+
+.btn.btn-danger:hover:not(:disabled) {
+  background: var(--danger);
+  color: #fff;
+}
+
 .panel {
   background: var(--bg-panel);
   border: 1px solid var(--border);
