@@ -15,6 +15,7 @@
       </div>
       <div class="header-actions">
         <button type="button" id="btn-rename" class="btn btn-ghost" title="Rename your knight">Rename</button>
+        <button type="button" id="btn-backup" class="btn btn-ghost" title="Copy or load your save">Backup</button>
         <button type="button" id="btn-reset" class="btn btn-ghost danger" title="Wipe save">Reset</button>
       </div>
     </header>
@@ -27,6 +28,22 @@
         <button type="button" id="rename-cancel" class="btn">Cancel</button>
       </div>
     </form>
+
+    <div id="backup-panel" class="header-dialog panel" hidden>
+      <label for="backup-text" class="label">Save backup</label>
+      <p class="panel-intro">
+        Copy your save to keep it safe or move it to another browser. To restore, paste a save here and load it.
+        Loading replaces your current progress.
+      </p>
+      <textarea id="backup-text" rows="4" spellcheck="false" autocomplete="off"
+        placeholder="Your save code appears here. Paste a save code to load it."></textarea>
+      <div class="dialog-row">
+        <button type="button" id="backup-copy" class="btn btn-primary">Copy my save</button>
+        <button type="button" id="backup-load" class="btn">Load pasted save</button>
+        <button type="button" id="backup-close" class="btn">Close</button>
+      </div>
+      <p id="backup-status" class="backup-status" role="status" aria-live="polite"></p>
+    </div>
 
     <div id="reset-confirm" class="header-dialog panel danger-dialog" role="alertdialog" aria-labelledby="reset-text" hidden>
       <p id="reset-text">Wipe all Ruin Wars progress in this browser? This can't be undone.</p>
@@ -79,8 +96,23 @@
       </div>
     </section>
 
+    <nav class="tabs" aria-label="Game sections">
+      <div id="tab-bar" class="tab-bar" role="tablist">
+        <button type="button" class="tab" role="tab" data-tab="quests">Quests<span class="tab-dot" hidden></span></button>
+        <button type="button" class="tab" role="tab" data-tab="lists">Lists<span class="tab-dot" hidden></span></button>
+        <button type="button" class="tab" role="tab" data-tab="bosses">Bosses<span class="tab-dot" hidden></span></button>
+        <button type="button" class="tab" role="tab" data-tab="band">Band<span class="tab-dot" hidden></span></button>
+        <button type="button" class="tab" role="tab" data-tab="holdings">Holdings<span class="tab-dot" hidden></span></button>
+        <button type="button" class="tab" role="tab" data-tab="gear">Gear<span class="tab-dot" hidden></span></button>
+        <button type="button" class="tab" role="tab" data-tab="armory">Armory<span class="tab-dot" hidden></span></button>
+        <button type="button" class="tab" role="tab" data-tab="chronicle">Chronicle<span class="tab-dot" hidden></span></button>
+      </div>
+    </nav>
+
+    <ul id="ticker" class="ticker" aria-label="Latest events"></ul>
+
     <main class="main">
-      <section class="panel" aria-labelledby="quests-heading">
+      <section class="panel" aria-labelledby="quests-heading" data-panel="quests" role="tabpanel">
         <h2 id="quests-heading">Quests</h2>
         <p class="panel-intro">
           Spend Energy on jobs. Earn gold and XP. Mastery ranks unlock at 5 / 15 / 40 completions.
@@ -92,7 +124,7 @@
         <div id="quest-list" class="card-list"></div>
       </section>
 
-      <section class="panel" aria-labelledby="lists-heading">
+      <section class="panel" aria-labelledby="lists-heading" data-panel="lists" role="tabpanel">
         <h2 id="lists-heading">The Lists</h2>
         <p class="panel-intro">
           Spend Stamina to face rivals on the Field of Honor. Your odds depend on your attack against theirs;
@@ -104,7 +136,7 @@
         <div id="heal-list" class="card-list"></div>
       </section>
 
-      <section class="panel" aria-labelledby="bosses-heading">
+      <section class="panel" aria-labelledby="bosses-heading" data-panel="bosses" role="tabpanel">
         <h2 id="bosses-heading">Bosses</h2>
         <p class="panel-intro">
           Great foes with vast HP. Each strike costs Stamina; the wounds you deal persist between strikes
@@ -113,7 +145,7 @@
         <div id="boss-list" class="card-list"></div>
       </section>
 
-      <section class="panel" aria-labelledby="band-heading">
+      <section class="panel" aria-labelledby="band-heading" data-panel="band" role="tabpanel">
         <h2 id="band-heading">Knight Band</h2>
         <p class="panel-intro">
           Knights who ride under your banner. Each raises your attack and defense in The Lists and against
@@ -123,7 +155,7 @@
         <div id="band-list" class="card-list"></div>
       </section>
 
-      <section class="panel" aria-labelledby="holdings-heading">
+      <section class="panel" aria-labelledby="holdings-heading" data-panel="holdings" role="tabpanel">
         <h2 id="holdings-heading">Holdings</h2>
         <p class="panel-intro">
           Buy lands and towers. They gather gold over real time — Collect before the coffers overflow (2 cycles).
@@ -131,7 +163,7 @@
         <div id="holdings-list" class="card-list"></div>
       </section>
 
-      <section class="panel" aria-labelledby="inventory-heading">
+      <section class="panel" aria-labelledby="inventory-heading" data-panel="gear" role="tabpanel">
         <h2 id="inventory-heading">Inventory</h2>
         <p class="panel-intro">
           Loot from quests, fights and bosses — Avalon and the Wastes drop stronger gear. Equip one weapon and
@@ -141,7 +173,7 @@
         <div id="inventory-list" class="card-list"></div>
       </section>
 
-      <section class="panel" aria-labelledby="collections-heading">
+      <section class="panel" aria-labelledby="collections-heading" data-panel="gear" role="tabpanel">
         <h2 id="collections-heading">Collections</h2>
         <p class="panel-intro">
           Set pieces drop from quests in each region, from fight wins, and always from bosses. Duplicates are kept.
@@ -150,7 +182,7 @@
         <div id="collections-list" class="card-list"></div>
       </section>
 
-      <section class="panel" aria-labelledby="shop-heading">
+      <section class="panel" aria-labelledby="shop-heading" data-panel="armory" role="tabpanel">
         <h2 id="shop-heading">Armory &amp; Relics</h2>
         <p class="panel-intro">
           Relics are bought once. Training can be bought rank after rank, each rank costing more.
@@ -158,7 +190,7 @@
         <div id="shop-list" class="card-list"></div>
       </section>
 
-      <section class="panel log-panel" aria-labelledby="log-heading">
+      <section class="panel log-panel" aria-labelledby="log-heading" data-panel="chronicle" role="tabpanel">
         <h2 id="log-heading">Chronicle</h2>
         <ul id="log" class="log" aria-live="polite"></ul>
         <h3 class="subhead" id="legends-heading">Legends</h3>
@@ -168,7 +200,7 @@
     </main>
 
     <footer class="footer">
-      <span>Ruin Wars v0.5 — local save in this browser</span>
+      <span>Ruin Wars v0.6 — local save in this browser</span>
     </footer>
   </div>
   <script src="game.js"></script>

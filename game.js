@@ -1,5 +1,5 @@
 /**
- * Ruin Wars — core game loop (v0.5)
+ * Ruin Wars — core game loop (v0.6)
  * Quests (Energy) across Regions + mastery/story/requirements, The Lists (Stamina/Health, odds-based
  * bouts), Bosses, Knight Band, Holdings (passive gold), Loot/Inventory (region tiers, equip, sell),
  * Collections, shop upgrades + ranked training.
@@ -1732,15 +1732,19 @@
 
   // --- Persistence ---
 
+  /** Everything persisted: state plus the chronicle. Also the body of a backup code. */
+  function savePayload() {
+    return {
+      ...state,
+      saveVersion: SAVE_VERSION,
+      lastTick: Date.now(),
+      log: logLines.slice(0, LOG_MAX),
+    };
+  }
+
   function save() {
     try {
-      const payload = {
-        ...state,
-        saveVersion: SAVE_VERSION,
-        lastTick: Date.now(),
-        log: logLines.slice(0, LOG_MAX),
-      };
-      localStorage.setItem(SAVE_KEY, JSON.stringify(payload));
+      localStorage.setItem(SAVE_KEY, JSON.stringify(savePayload()));
       saveDirty = false;
       lastSaveAt = Date.now();
       lastSaveSig = saveSignature();
@@ -1763,84 +1767,89 @@
       if (!raw) return;
       const data = JSON.parse(raw);
       if (!data || typeof data !== "object") return;
-      state = { ...defaultState(), ...data };
-      // Chronicle log lives outside state; older saves simply have no log field.
-      delete state.log;
-      if (Array.isArray(data.log)) {
-        logLines = data.log
+      applySaveData(data, migratedFrom);
+    } catch (e) {
+      state = defaultState();
+    }
+  }
+
+  /** Load a parsed save object into the game, filling defaults for missing fields and migrating old versions. */
+  function applySaveData(data, migratedFrom) {
+    state = { ...defaultState(), ...data };
+    // Chronicle log lives outside state; older saves simply have no log field.
+    delete state.log;
+    logLines = Array.isArray(data.log)
+      ? data.log
           .filter(function (line) {
             return typeof line === "string";
           })
-          .slice(0, LOG_MAX);
-      }
-      if (!state.questCooldownUntil || typeof state.questCooldownUntil !== "object") {
-        state.questCooldownUntil = {};
-      }
-      if (!state.fightCooldownUntil || typeof state.fightCooldownUntil !== "object") {
-        state.fightCooldownUntil = {};
-      }
-      if (!state.ownedUpgrades || typeof state.ownedUpgrades !== "object") {
-        state.ownedUpgrades = {};
-      }
-      // v0.5 fields
-      if (!state.upgradeRanks || typeof state.upgradeRanks !== "object") {
-        state.upgradeRanks = {};
-      }
-      if (!state.questCounts || typeof state.questCounts !== "object") {
-        state.questCounts = {};
-      }
-      if (!Array.isArray(state.storyUnlocks)) {
-        state.storyUnlocks = [];
-      }
-      if (!state.holdings || typeof state.holdings !== "object") {
-        state.holdings = {};
-      }
-      if (!state.inventory || typeof state.inventory !== "object") {
-        state.inventory = {};
-      }
-      if (!state.equipped || typeof state.equipped !== "object") {
-        state.equipped = { weapon: null, armor: null };
-      }
-      if (state.equipped.weapon === undefined) state.equipped.weapon = null;
-      if (state.equipped.armor === undefined) state.equipped.armor = null;
-      // v0.4 fields
-      if (typeof state.level !== "number" || state.level < 1) state.level = 1;
-      if (!state.collections || typeof state.collections !== "object") state.collections = {};
-      if (!state.collectionsRedeemed || typeof state.collectionsRedeemed !== "object") {
-        state.collectionsRedeemed = {};
-      }
-      if (!state.bosses || typeof state.bosses !== "object") state.bosses = {};
-      BOSSES.forEach(function (def) {
-        bossState(def);
-      });
-      bandState();
-      if (!getRegion(state.region) || !regionUnlocked(getRegion(state.region))) {
-        state.region = "camelot";
-      }
-      const oldVersion = typeof data.saveVersion === "number" ? data.saveVersion : 3;
-      state.saveVersion = SAVE_VERSION;
-      syncMaxesFromLevel();
-      if (typeof state.stamina !== "number") state.stamina = state.staminaMax;
-      if (typeof state.health !== "number") state.health = state.healthMax;
-      state.energy = Math.min(state.energy, state.energyMax);
-      state.stamina = Math.min(state.stamina, state.staminaMax);
-      state.health = Math.min(Math.max(0, state.health), state.healthMax);
-      clearFallenIfHealed();
-      applyOfflineRegen();
-      if (migratedFrom || oldVersion < 4) {
-        addLog(
-          "Save migrated to v0.4 — Regions, Bosses, Knight Band and Collections are now open to you."
-        );
-      }
-      if (migratedFrom || oldVersion < SAVE_VERSION) {
-        addLog(
-          "Save updated to v0.5 — ranked training in the Armory, stronger loot in Avalon and the Wastes, " +
-            "selling spare loot, odds-based bouts in The Lists, and band / gear requirements on later quests."
-        );
-        save();
-      }
-    } catch (e) {
-      state = defaultState();
+          .slice(0, LOG_MAX)
+      : [];
+    if (!state.questCooldownUntil || typeof state.questCooldownUntil !== "object") {
+      state.questCooldownUntil = {};
+    }
+    if (!state.fightCooldownUntil || typeof state.fightCooldownUntil !== "object") {
+      state.fightCooldownUntil = {};
+    }
+    if (!state.ownedUpgrades || typeof state.ownedUpgrades !== "object") {
+      state.ownedUpgrades = {};
+    }
+    // v0.5 fields
+    if (!state.upgradeRanks || typeof state.upgradeRanks !== "object") {
+      state.upgradeRanks = {};
+    }
+    if (!state.questCounts || typeof state.questCounts !== "object") {
+      state.questCounts = {};
+    }
+    if (!Array.isArray(state.storyUnlocks)) {
+      state.storyUnlocks = [];
+    }
+    if (!state.holdings || typeof state.holdings !== "object") {
+      state.holdings = {};
+    }
+    if (!state.inventory || typeof state.inventory !== "object") {
+      state.inventory = {};
+    }
+    if (!state.equipped || typeof state.equipped !== "object") {
+      state.equipped = { weapon: null, armor: null };
+    }
+    if (state.equipped.weapon === undefined) state.equipped.weapon = null;
+    if (state.equipped.armor === undefined) state.equipped.armor = null;
+    // v0.4 fields
+    if (typeof state.level !== "number" || state.level < 1) state.level = 1;
+    if (!state.collections || typeof state.collections !== "object") state.collections = {};
+    if (!state.collectionsRedeemed || typeof state.collectionsRedeemed !== "object") {
+      state.collectionsRedeemed = {};
+    }
+    if (!state.bosses || typeof state.bosses !== "object") state.bosses = {};
+    BOSSES.forEach(function (def) {
+      bossState(def);
+    });
+    bandState();
+    if (!getRegion(state.region) || !regionUnlocked(getRegion(state.region))) {
+      state.region = "camelot";
+    }
+    const oldVersion = typeof data.saveVersion === "number" ? data.saveVersion : 3;
+    state.saveVersion = SAVE_VERSION;
+    syncMaxesFromLevel();
+    if (typeof state.stamina !== "number") state.stamina = state.staminaMax;
+    if (typeof state.health !== "number") state.health = state.healthMax;
+    state.energy = Math.min(state.energy, state.energyMax);
+    state.stamina = Math.min(state.stamina, state.staminaMax);
+    state.health = Math.min(Math.max(0, state.health), state.healthMax);
+    clearFallenIfHealed();
+    applyOfflineRegen();
+    if (migratedFrom || oldVersion < 4) {
+      addLog(
+        "Save migrated to v0.4 — Regions, Bosses, Knight Band and Collections are now open to you."
+      );
+    }
+    if (migratedFrom || oldVersion < SAVE_VERSION) {
+      addLog(
+        "Save updated to v0.5 — ranked training in the Armory, stronger loot in Avalon and the Wastes, " +
+          "selling spare loot, odds-based bouts in The Lists, and band / gear requirements on later quests."
+      );
+      save();
     }
   }
 
@@ -2663,6 +2672,7 @@
   function closeHeaderDialogs() {
     el.renameForm.hidden = true;
     el.resetConfirm.hidden = true;
+    el.backupPanel.hidden = true;
   }
 
   function openRename() {
@@ -2696,6 +2706,97 @@
     if (wasOpen) return;
     el.resetConfirm.hidden = false;
     el.resetCancel.focus();
+  }
+
+  // --- Save backup (export / import as a text code) ---
+
+  const BACKUP_PREFIX = "RW1.";
+
+  function encodeBackup() {
+    const bytes = new TextEncoder().encode(JSON.stringify(savePayload()));
+    let bin = "";
+    for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+    return BACKUP_PREFIX + btoa(bin);
+  }
+
+  /** Accepts a backup code (RW1.…) or raw save JSON. Returns the save object, or null if it isn't one. */
+  function decodeBackup(text) {
+    const trimmed = String(text || "").trim();
+    let json = trimmed;
+    if (trimmed.indexOf(BACKUP_PREFIX) === 0) {
+      const bin = atob(trimmed.slice(BACKUP_PREFIX.length).replace(/\s+/g, ""));
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      json = new TextDecoder().decode(bytes);
+    }
+    const data = JSON.parse(json);
+    if (!data || typeof data !== "object" || Array.isArray(data)) return null;
+    if (typeof data.level !== "number" || typeof data.gold !== "number") return null;
+    return data;
+  }
+
+  function setBackupStatus(msg, isError) {
+    el.backupStatus.textContent = msg;
+    el.backupStatus.classList.toggle("error", !!isError);
+  }
+
+  function openBackup() {
+    const wasOpen = !el.backupPanel.hidden;
+    closeHeaderDialogs();
+    if (wasOpen) return;
+    el.backupPanel.hidden = false;
+    el.backupText.value = "";
+    setBackupStatus("", false);
+    el.backupCopy.focus();
+  }
+
+  function copyBackup() {
+    const code = encodeBackup();
+    el.backupText.value = code;
+    function selectFallback() {
+      el.backupText.focus();
+      el.backupText.select();
+      setBackupStatus("Save code selected. Copy it with Ctrl+C (or long-press on a phone).", false);
+    }
+    try {
+      navigator.clipboard.writeText(code).then(function () {
+        setBackupStatus("Copied your save to the clipboard. Keep it somewhere safe.", false);
+      }, selectFallback);
+    } catch (e) {
+      selectFallback();
+    }
+  }
+
+  function loadBackup() {
+    let data = null;
+    try {
+      data = decodeBackup(el.backupText.value);
+    } catch (e) {
+      data = null;
+    }
+    if (!data) {
+      setBackupStatus(
+        "That isn't a Ruin Wars save. Paste the whole code, starting with " + BACKUP_PREFIX,
+        true
+      );
+      el.backupText.focus();
+      return;
+    }
+    const prevState = state;
+    const prevLog = logLines;
+    try {
+      applySaveData(data, null);
+    } catch (e) {
+      state = prevState;
+      logLines = prevLog;
+      setBackupStatus("That save is damaged and couldn't be loaded. Your progress is unchanged.", true);
+      return;
+    }
+    addLog("Save loaded from a backup. Welcome back, " + state.name + ".");
+    save();
+    render();
+    el.backupText.value = "";
+    setBackupStatus("Loaded " + state.name + ", Level " + state.level + ".", false);
   }
 
   function resetGame() {
@@ -2837,6 +2938,17 @@
     resetConfirm: document.getElementById("reset-confirm"),
     resetYes: document.getElementById("reset-yes"),
     resetCancel: document.getElementById("reset-cancel"),
+    btnBackup: document.getElementById("btn-backup"),
+    backupPanel: document.getElementById("backup-panel"),
+    backupText: document.getElementById("backup-text"),
+    backupCopy: document.getElementById("backup-copy"),
+    backupLoad: document.getElementById("backup-load"),
+    backupClose: document.getElementById("backup-close"),
+    backupStatus: document.getElementById("backup-status"),
+    statsPanel: document.querySelector(".stats"),
+    tabBar: document.getElementById("tab-bar"),
+    main: document.querySelector(".main"),
+    ticker: document.getElementById("ticker"),
   };
 
   // --- In-place DOM patching ---
@@ -2947,7 +3059,205 @@
     if (!target || target.disabled) return;
     const fn = ACTIONS[target.getAttribute("data-action")];
     if (!fn) return;
+    const before = feedbackSnapshot();
     fn(target.getAttribute("data-id"));
+    showActionFeedback(target, before);
+  }
+
+  // --- Tabs ---
+
+  const TAB_IDS = ["quests", "lists", "bosses", "band", "holdings", "gear", "armory", "chronicle"];
+  const TAB_STORE_KEY = "ruin_wars_tab"; // per-browser convenience, not part of the save
+  let currentTab = "quests";
+
+  function initialTab() {
+    const hash = (location.hash || "").replace("#", "");
+    if (TAB_IDS.indexOf(hash) >= 0) return hash;
+    try {
+      const stored = localStorage.getItem(TAB_STORE_KEY);
+      if (TAB_IDS.indexOf(stored) >= 0) return stored;
+    } catch (e) {
+      // storage blocked: fall back to the first tab
+    }
+    return "quests";
+  }
+
+  function setTab(tabId) {
+    if (TAB_IDS.indexOf(tabId) < 0) return;
+    currentTab = tabId;
+    document.querySelectorAll("[data-panel]").forEach(function (sec) {
+      sec.hidden = sec.getAttribute("data-panel") !== tabId;
+    });
+    el.tabBar.querySelectorAll(".tab").forEach(function (btn) {
+      const on = btn.getAttribute("data-tab") === tabId;
+      btn.classList.toggle("active", on);
+      btn.setAttribute("aria-selected", on ? "true" : "false");
+      btn.tabIndex = on ? 0 : -1;
+    });
+    try {
+      localStorage.setItem(TAB_STORE_KEY, tabId);
+    } catch (e) {
+      // ignore
+    }
+    renderTicker();
+    // If the new tab's top is hidden under the sticky tab bar, scroll it back into view.
+    const barBottom = el.tabBar.getBoundingClientRect().bottom;
+    const anchor = el.ticker.hidden ? el.main : el.ticker;
+    const anchorTop = anchor.getBoundingClientRect().top;
+    if (anchorTop < barBottom) {
+      window.scrollTo(0, window.scrollY + anchorTop - barBottom - 8);
+    }
+  }
+
+  function onTabClick(ev) {
+    const btn = ev.target.closest(".tab");
+    if (btn) setTab(btn.getAttribute("data-tab"));
+  }
+
+  function onTabKey(ev) {
+    if (ev.key !== "ArrowRight" && ev.key !== "ArrowLeft") return;
+    const i = TAB_IDS.indexOf(currentTab);
+    const next = TAB_IDS[(i + (ev.key === "ArrowRight" ? 1 : TAB_IDS.length - 1)) % TAB_IDS.length];
+    setTab(next);
+    const btn = el.tabBar.querySelector('[data-tab="' + next + '"]');
+    if (btn) btn.focus();
+    ev.preventDefault();
+  }
+
+  /** Which tabs have something waiting for the player. */
+  function tabAlerts() {
+    const alerts = {};
+    alerts.holdings = HOLDINGS.some(function (def) {
+      const h = state.holdings && state.holdings[def.id];
+      return !!(h && h.owned && h.pending >= holdingCap(def, h));
+    });
+    alerts.band = rallyRemaining() === 0 && bandState().recruits < bandCap();
+    alerts.gear = COLLECTIONS.some(function (set) {
+      return collectionComplete(set) && !collectionRedeemed(set.id);
+    });
+    alerts.bosses =
+      !state.fallen &&
+      BOSSES.some(function (def) {
+        return (
+          state.level >= def.minLevel &&
+          bossRespawnRemaining(def) === 0 &&
+          state.stamina >= def.stamina
+        );
+      });
+    return alerts;
+  }
+
+  const TAB_ALERT_TITLES = {
+    holdings: "A holding is full. Collect its gold.",
+    band: "The Muster Horn is ready.",
+    gear: "A collection is complete. Redeem it.",
+    bosses: "A boss is ready to strike.",
+  };
+
+  function renderTabAlerts() {
+    const alerts = tabAlerts();
+    el.tabBar.querySelectorAll(".tab").forEach(function (btn) {
+      const id = btn.getAttribute("data-tab");
+      const dot = btn.querySelector(".tab-dot");
+      const on = !!alerts[id];
+      if (dot.hidden === on) dot.hidden = !on;
+      const title = on ? TAB_ALERT_TITLES[id] : "";
+      if ((btn.getAttribute("title") || "") !== title) {
+        if (title) btn.setAttribute("title", title);
+        else btn.removeAttribute("title");
+      }
+    });
+  }
+
+  // --- Ticker: the latest chronicle lines, shown on every tab but the Chronicle ---
+
+  const TICKER_LINES = 3;
+  let tickerTop = null;
+
+  function renderTicker() {
+    if (!el.ticker) return;
+    el.ticker.hidden = currentTab === "chronicle" || logLines.length === 0;
+    if (logLines[0] === tickerTop && el.ticker.childNodes.length) return;
+    const isNew = tickerTop !== null;
+    tickerTop = logLines[0];
+    el.ticker.textContent = "";
+    logLines.slice(0, TICKER_LINES).forEach(function (line, i) {
+      const li = document.createElement("li");
+      li.textContent = line;
+      if (i === 0 && isNew) li.className = "fresh";
+      el.ticker.appendChild(li);
+    });
+  }
+
+  // --- Action feedback: floating gains / losses and a level-up flash ---
+
+  function feedbackSnapshot() {
+    return { gold: state.gold, xp: state.xp, level: state.level, health: state.health };
+  }
+
+  /** XP gained between two (level, xp) points, counting across level-ups. */
+  function xpGainedSince(before) {
+    if (state.level === before.level) return state.xp - before.xp;
+    let gained = xpForLevel(before.level) - before.xp;
+    for (let lv = before.level + 1; lv < state.level; lv++) gained += xpForLevel(lv);
+    return gained + state.xp;
+  }
+
+  function showActionFeedback(target, before) {
+    const parts = [];
+    const dGold = state.gold - before.gold;
+    const dXp = xpGainedSince(before);
+    const dHealth = state.health - before.health;
+    if (dGold > 0) parts.push({ cls: "fx-gold", text: "+" + dGold + "g" });
+    if (dGold < 0) parts.push({ cls: "fx-spend", text: "−" + -dGold + "g" });
+    if (dXp > 0) parts.push({ cls: "fx-xp", text: "+" + dXp + " XP" });
+    if (dHealth > 0) parts.push({ cls: "fx-heal", text: "+" + dHealth + " HP" });
+    if (dHealth < 0) parts.push({ cls: "fx-hurt", text: "−" + -dHealth + " HP" });
+    if (parts.length && target.isConnected) {
+      const rect = target.getBoundingClientRect();
+      const fx = document.createElement("div");
+      fx.className = "floater";
+      fx.setAttribute("aria-hidden", "true");
+      parts.forEach(function (p) {
+        const span = document.createElement("span");
+        span.className = p.cls;
+        span.textContent = p.text;
+        fx.appendChild(span);
+      });
+      fx.style.left = Math.round(rect.left + rect.width / 2) + "px";
+      fx.style.top = Math.round(rect.top) + "px";
+      document.body.appendChild(fx);
+      setTimeout(function () {
+        fx.remove();
+      }, 1300);
+    }
+    if (state.level > before.level) celebrateLevel();
+  }
+
+  function celebrateLevel() {
+    el.statsPanel.classList.remove("level-flash");
+    void el.statsPanel.offsetWidth; // restart the animation
+    el.statsPanel.classList.add("level-flash");
+    const toast = document.createElement("div");
+    toast.className = "level-toast";
+    toast.setAttribute("role", "status");
+    toast.textContent = "Level " + state.level + "!";
+    document.body.appendChild(toast);
+    setTimeout(function () {
+      toast.remove();
+    }, 2200);
+  }
+
+  /** Milliseconds until a regenerating resource is full (0 when full). */
+  function msUntilFull(cur, max, intervalMs, accMs) {
+    if (cur >= max) return 0;
+    return Math.max(0, (max - cur) * intervalMs - (accMs || 0));
+  }
+
+  function regenHintText(cur, max, intervalMs, accMs) {
+    const left = msUntilFull(cur, max, intervalMs, accMs);
+    if (left <= 0) return "Full";
+    return "+1 / " + Math.round(intervalMs / 1000) + "s · full in " + formatCooldown(left);
   }
 
   function renderStatsOnly() {
@@ -2963,15 +3273,23 @@
     el.energyMax.textContent = String(state.energyMax);
     el.energyBar.style.width =
       Math.min(100, (state.energy / state.energyMax) * 100) + "%";
-    const secs = Math.round(regenIntervalMs() / 1000);
-    el.regenHint.textContent = "+1 / " + secs + "s";
+    el.regenHint.textContent = regenHintText(
+      state.energy,
+      state.energyMax,
+      regenIntervalMs(),
+      state.energyAccMs
+    );
 
     el.stamina.textContent = String(state.stamina);
     el.staminaMax.textContent = String(state.staminaMax);
     el.staminaBar.style.width =
       Math.min(100, (state.stamina / state.staminaMax) * 100) + "%";
-    el.staminaRegenHint.textContent =
-      "+1 / " + Math.round(STAMINA_REGEN_MS / 1000) + "s";
+    el.staminaRegenHint.textContent = regenHintText(
+      state.stamina,
+      state.staminaMax,
+      STAMINA_REGEN_MS,
+      state.staminaAccMs
+    );
 
     el.health.textContent = String(state.health);
     el.healthMax.textContent = String(state.healthMax);
@@ -2979,11 +3297,13 @@
       Math.min(100, (state.health / Math.max(1, state.healthMax)) * 100) + "%";
     if (state.fallen || state.health <= 0) {
       el.healthRegenHint.textContent = "Fallen — Chapel";
-    } else if (state.health >= state.healthMax) {
-      el.healthRegenHint.textContent = "Full";
     } else {
-      el.healthRegenHint.textContent =
-        "+1 / " + Math.round(HEALTH_REGEN_MS / 1000) + "s";
+      el.healthRegenHint.textContent = regenHintText(
+        state.health,
+        state.healthMax,
+        HEALTH_REGEN_MS,
+        state.healthAccMs
+      );
     }
 
     if (el.band) {
@@ -3864,6 +4184,7 @@
     renderInventory();
     renderCollections();
     renderShop();
+    renderTabAlerts();
   }
 
   function render() {
@@ -3880,6 +4201,8 @@
     renderShop();
     renderLog();
     renderLegends();
+    renderTabAlerts();
+    renderTicker();
   }
 
   function escapeHtml(str) {
@@ -3898,6 +4221,12 @@
   el.renameCancel.addEventListener("click", closeHeaderDialogs);
   el.resetYes.addEventListener("click", resetGame);
   el.resetCancel.addEventListener("click", closeHeaderDialogs);
+  el.btnBackup.addEventListener("click", openBackup);
+  el.backupCopy.addEventListener("click", copyBackup);
+  el.backupLoad.addEventListener("click", loadBackup);
+  el.backupClose.addEventListener("click", closeHeaderDialogs);
+  el.tabBar.addEventListener("click", onTabClick);
+  el.tabBar.addEventListener("keydown", onTabKey);
   document.addEventListener("keydown", function (ev) {
     if (ev.key === "Escape") closeHeaderDialogs();
   });
@@ -3915,6 +4244,7 @@
       "Welcome to Ruin Wars. Quests across three regions, The Lists, Bosses, your Knight Band, Holdings, loot and Collections await."
     );
   }
+  setTab(initialTab());
   render();
   setInterval(tick, TICK_MS);
 

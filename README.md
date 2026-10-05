@@ -2,7 +2,7 @@
 
 Arthurian / fantasy clicker starter in the spirit of old Facebook *Mafia Wars*: spend **Energy** on quests across **three regions** (with **mastery** + **story**), **Stamina** on arena fights and **boss** strikes, manage **Health**, grow a **knight band**, earn **gold** and **XP**, buy **holdings** for passive income, find **loot** to equip, complete **collections**, level up, and buy permanent shop upgrades. No backend — pure static HTML/CSS/JS with `localStorage` saves.
 
-**Current version: v0.5** — a deeper economy and real choices: ranked training, region-tiered loot you can sell, odds-based bouts in The Lists, and band / gear requirements on quests (see below). v0.4 added Regions, Bosses, Knight Band and Collections.
+**Current version: v0.6** — easier to play: tabs instead of one long page, a save backup you can copy and paste, and clearer feedback (floating gains, a level-up flash, time-until-full on Energy / Stamina / Health). v0.5 deepened the economy (ranked training, region-tiered loot you can sell, odds-based bouts, quest requirements); v0.4 added Regions, Bosses, Knight Band and Collections.
 
 ## Resources
 
@@ -18,6 +18,24 @@ Arthurian / fantasy clicker starter in the spirit of old Facebook *Mafia Wars*: 
 - Energy regenerates about every **12s**; Stamina about every **18s** (slower, more Mafia Wars–like).
 - Quest cooldowns are **short on early jobs**, **long on late jobs** (up to a few minutes).
 - Fight opponent cooldowns are longer too.
+
+## v0.6 interface
+
+### Tabs
+The stats panel stays on top; everything else sits under a sticky tab bar: **Quests · Lists · Bosses · Band · Holdings · Gear · Armory · Chronicle** (Gear = Inventory + Collections, Lists = The Lists + Chapel). The last tab you used is remembered per browser (`localStorage` key `ruin_wars_tab`, separate from the save), and a bare `#lists`-style link opens that tab. Left / Right arrow keys move between tabs.
+
+A dot on a tab means something is waiting there: a **full holding**, the **Muster Horn** ready with room in the band, a **complete collection** to redeem, or a **boss** you have the Stamina to strike.
+
+Under the tabs, a **ticker** shows the three latest chronicle lines (hidden on the Chronicle tab, which has the full log).
+
+### Save backup
+**Backup** in the header opens a box with **Copy my save** (a single-line code, `RW1.` + base64 of the save JSON, copied to the clipboard or selected for you) and **Load pasted save** (accepts that code or raw save JSON, and replaces current progress). Rename, Reset and Backup are all in-page controls, so they also work where `prompt()` / `confirm()` are blocked (e.g. when hosted as a Claude artifact).
+
+### Feedback
+- Every action button shows floating changes where you clicked: gold (+ / −), XP, Health lost or healed.
+- Levelling up flashes the stats panel and shows a **Level N!** banner.
+- Energy, Stamina and Health hints show the rate and **time until full**.
+- Animations are cut short under `prefers-reduced-motion`.
 
 ## v0.5 systems
 
@@ -131,7 +149,7 @@ npx --yes serve .
 
 | File | Role |
 |------|------|
-| `index.html` | Layout: stats (incl. band), quests + region tabs, Lists + Chapel, bosses, knight band, holdings, inventory, collections, shop, chronicle + legends |
+| `index.html` | Layout: header (rename / backup / reset dialogs), stats (incl. band), tab bar + ticker, then one tagged `data-panel` section per tab: quests + region tabs, Lists + Chapel, bosses, knight band, holdings, inventory, collections, shop, chronicle + legends |
 | `styles.css` | Dark parchment / stone theme |
 | `game.js` | All game logic — regions/quests/mastery/story, fights, bosses, band, holdings, loot, collections, shop, regen, save/load |
 
@@ -143,6 +161,8 @@ In `game.js`:
 - **Quest requirements** — `questRequirements(quest)` / `unmetRequirements(quest)` read a quest's optional `requires: { band, weapon, armor }`
 - **`tick`** — energy, stamina, health regen + holding accrual + boss regen/respawn every second, then `renderLive()`
 - **Rendering** — render functions build detached nodes and `patchChildren()` morphs them into the page (keyed by `data-key`), so unchanged buttons keep their identity across ticks (no dropped clicks / hover flicker). Buttons use `data-action` / `data-id` with one delegated click listener (`ACTIONS`).
+- **Tabs / feedback** — `setTab` / `tabAlerts` / `renderTicker`; `onActionClick` snapshots gold / XP / level / health before each action and `showActionFeedback` floats the difference
+- **Backup** — `encodeBackup` / `decodeBackup`; `load()` and backup import both go through `applySaveData(data)`
 - **`save` / `load`** — `localStorage` key `ruin_wars_save_v4` (`saveVersion: 5`); falls back to legacy `ruin_wars_save_v1` and migrates. Saves happen immediately after actions, at most every ~8s from the tick when something changed, and on `visibilitychange` (hidden) / `pagehide` / `beforeunload`. The last 50 chronicle lines are saved under `log` (optional; older saves load fine without it).
 - **`window.RuinWars`** — DevTools helpers
 
@@ -153,11 +173,9 @@ v0.5 still saves to `ruin_wars_save_v4`, now with `saveVersion: 5`; older v4 sav
 ## Suggested next features
 
 1. Prestige / New Game+ that keeps a banner title after a soft reset.
-2. Sound cues and a short “quest complete” flourish.
-3. Export / import save as JSON for moving between browsers.
-4. A third boss (the Questing Beast?) and more region-specific foes in The Lists.
-5. Achievements and a daily login reward.
-6. Tabbed navigation for small screens.
+2. A third boss (the Questing Beast?) and more region-specific foes in The Lists.
+3. Achievements and a daily login reward.
+4. Optional sound cues.
 
 ## License
 
