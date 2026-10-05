@@ -1,5 +1,5 @@
 /**
- * Ruin Wars — core game loop (v0.6)
+ * Ruin Wars — core game loop (v0.7)
  * Quests (Energy) across Regions + mastery/story/requirements, The Lists (Stamina/Health, odds-based
  * bouts), Bosses, Knight Band, Holdings (passive gold), Loot/Inventory (region tiers, equip, sell),
  * Collections, shop upgrades + ranked training.
@@ -11,7 +11,7 @@
 
   const SAVE_KEY = "ruin_wars_save_v4";
   const LEGACY_SAVE_KEYS = ["ruin_wars_save_v1"];
-  const SAVE_VERSION = 5;
+  const SAVE_VERSION = 6;
   const TICK_MS = 1000;
   const BASE_ENERGY_MAX = 25;
   const BASE_STAMINA_MAX = 20;
@@ -27,6 +27,17 @@
   const FIGHT_ODDS_EXPONENT = 4; // win chance = atk^k / (atk^k + foe^k): 50% at even, ~67% at +20%
   const FIGHT_ODDS_MIN = 0.05;
   const FIGHT_ODDS_MAX = 0.95;
+  const RENOWN_MIN_LEVEL = 30; // level needed to begin a new legend (prestige)
+  const RENOWN_GOLD_PER_RANK = 0.1;
+  const RENOWN_XP_PER_RANK = 0.1;
+  /** Title for renown rank 1, 2, … (the last one repeats for higher ranks). */
+  const RENOWN_TITLES = [
+    "Errant Knight",
+    "Knight of the Round Table",
+    "Knight of the Grail",
+    "Peer of Logres",
+    "Pendragon's Champion",
+  ];
   const UPSET_BONUS = 2; // reward × (1 + UPSET_BONUS × (0.5 − odds)) when winning with odds below 50%
   const MASTERY_THRESHOLDS = [5, 15, 40];
   const MASTERY_RANKS = ["Unproven", "Proven", "Veteran", "Master"];
@@ -430,6 +441,8 @@
   const BOSS_LEGENDS = {
     green_knight:
       "The Green Knight's head rolls across the Yule-hall floor — and he stoops, lifts it by the hair, and laughs. 'A year and a day,' says the head. 'Then it is my turn.' You have won nothing but a debt of honor, and you have never been prouder.",
+    questing_beast:
+      "The Questing Beast falls in a thicket at the edge of the Wastes, and for the first time in living memory the baying in its belly goes quiet. Somewhere, an old king's ghost lowers his spear at last. You do not feel triumphant. You feel the silence, and how long it was coming.",
     mordred:
       "On the Field of Camlann, Mordred falls at last, Clarent shattered beneath him. With his last breath he whispers not a curse but a name — his father's. The ravens circle once and leave. The long night of Logres is ending, though no song will call it a victory.",
   };
@@ -448,7 +461,7 @@
       name: "Boastful Squire",
       desc: "Eager steel, little skill.",
       stamina: 3,
-      power: 18,
+      power: 12,
       gold: 12,
       xp: 18,
       dmgMin: 4,
@@ -1015,6 +1028,16 @@
       unique: true,
       effect: { attack: 85, defense: 15 },
     },
+    {
+      id: "pellinore_mail",
+      name: "Pellinore's Hunting Mail",
+      slot: "armor",
+      desc: "Boss unique: +25% gold; +60 defense, +20 fight power",
+      weight: 0,
+      value: 5000,
+      unique: true,
+      effect: { goldMult: 0.25, defense: 60, attack: 20 },
+    },
   ];
 
   /**
@@ -1110,6 +1133,25 @@
       lootId: "clarent",
       collectionId: "pendragon",
     },
+    {
+      id: "questing_beast",
+      name: "The Questing Beast",
+      desc: "Serpent's head, leopard's body, the baying of thirty hounds in its belly. King Pellinore never caught it.",
+      minLevel: 30,
+      maxHp: 14000,
+      stamina: 10,
+      regenPerMin: 40,
+      respawnMs: 90 * 60 * 1000,
+      respawnLabel: "90m",
+      dmgMin: 18,
+      dmgMax: 34,
+      strikeGold: 80,
+      strikeXp: 50,
+      gold: 20000,
+      xp: 6000,
+      lootId: "pellinore_mail",
+      collectionId: "grail",
+    },
   ];
 
   /** Named knights — special recruits (count toward band size, not the hire cap) */
@@ -1161,6 +1203,7 @@
       fallen: false,
       ownedUpgrades: {},
       upgradeRanks: {},
+      renown: 0,
       questCooldownUntil: {},
       fightCooldownUntil: {},
       questCounts: {},
@@ -1448,6 +1491,7 @@
     m += eq.goldMult;
     m += collectionBonuses().goldMult;
     m += rankedBonuses().goldMult;
+    m += renownBonuses().goldMult;
     if (questId) {
       m += masteryBonusForQuest(questId).goldAdd;
     }
@@ -1465,6 +1509,7 @@
     m += eq.xpMult;
     m += collectionBonuses().xpMult;
     m += rankedBonuses().xpMult;
+    m += renownBonuses().xpMult;
     m += bandBonuses().xpMult;
     if (questId) {
       m += masteryBonusForQuest(questId).xpAdd;
@@ -1491,6 +1536,20 @@
     const rank = upgradeRank(def.id);
     if (rank >= def.maxRank) return null;
     return Math.round((def.baseCost * Math.pow(def.growth, rank)) / 5) * 5;
+  }
+
+  function renownRank() {
+    return state.renown || 0;
+  }
+
+  function renownTitle(rank) {
+    if (!rank) return "";
+    return RENOWN_TITLES[Math.min(rank, RENOWN_TITLES.length) - 1];
+  }
+
+  function renownBonuses() {
+    const r = renownRank();
+    return { goldMult: r * RENOWN_GOLD_PER_RANK, xpMult: r * RENOWN_XP_PER_RANK };
   }
 
   function rankedBonuses() {
@@ -1798,6 +1857,9 @@
     if (!state.upgradeRanks || typeof state.upgradeRanks !== "object") {
       state.upgradeRanks = {};
     }
+    // v0.7 fields
+    if (typeof state.renown !== "number" || state.renown < 0) state.renown = 0;
+    state.renown = Math.floor(state.renown);
     if (!state.questCounts || typeof state.questCounts !== "object") {
       state.questCounts = {};
     }
@@ -1844,10 +1906,16 @@
         "Save migrated to v0.4 — Regions, Bosses, Knight Band and Collections are now open to you."
       );
     }
-    if (migratedFrom || oldVersion < SAVE_VERSION) {
+    if (migratedFrom || oldVersion < 5) {
       addLog(
         "Save updated to v0.5 — ranked training in the Armory, stronger loot in Avalon and the Wastes, " +
           "selling spare loot, odds-based bouts in The Lists, and band / gear requirements on later quests."
+      );
+    }
+    if (migratedFrom || oldVersion < SAVE_VERSION) {
+      addLog(
+        "Save updated to v0.7 — the Questing Beast waits at Level 30, and knights of Level 30 can " +
+          "begin a new legend for Renown (see the Chronicle tab)."
       );
       save();
     }
@@ -2248,9 +2316,13 @@
       if (loot) grantLoot(loot);
       const set = getCollection(def.collectionId);
       if (set) grantCollectionPiece(set, rollCollectionPiece(set, true));
-      if (b.kills === 1 && BOSS_LEGENDS[def.id]) {
+      const legendId = "boss_" + def.id;
+      const hasLegend = state.storyUnlocks.some(function (u) {
+        return u.questId === legendId;
+      });
+      if (!hasLegend && BOSS_LEGENDS[def.id]) {
         state.storyUnlocks.push({
-          questId: "boss_" + def.id,
+          questId: legendId,
           threshold: 0,
           rank: "Boss Slain",
           questName: def.name,
@@ -2799,6 +2871,56 @@
     setBackupStatus("Loaded " + state.name + ", Level " + state.level + ".", false);
   }
 
+  // --- Renown (prestige): start again at Level 1 for a title and a permanent bonus ---
+
+  let renownConfirmOpen = false;
+
+  function openRenownConfirm() {
+    if (state.level < RENOWN_MIN_LEVEL) return;
+    renownConfirmOpen = true;
+    render();
+  }
+
+  function cancelRenown() {
+    renownConfirmOpen = false;
+    render();
+  }
+
+  function beginNewLegend() {
+    renownConfirmOpen = false;
+    if (state.level < RENOWN_MIN_LEVEL) {
+      addLog("Reach Level " + RENOWN_MIN_LEVEL + " before you begin a new legend.");
+      render();
+      return;
+    }
+    const kept = {
+      name: state.name,
+      renown: renownRank() + 1,
+      storyUnlocks: state.storyUnlocks,
+    };
+    const finalLevel = state.level;
+    state = Object.assign(defaultState(), kept);
+    syncMaxesFromLevel();
+    addLog(
+      "At Level " +
+        finalLevel +
+        " you lay down your arms and ride out again as a squire. The bards remember: you are now " +
+        state.name +
+        ", " +
+        renownTitle(state.renown) +
+        " (Renown " +
+        state.renown +
+        ": +" +
+        Math.round(renownBonuses().goldMult * 100) +
+        "% gold, +" +
+        Math.round(renownBonuses().xpMult * 100) +
+        "% XP)."
+    );
+    save();
+    setTab("quests");
+    render();
+  }
+
   function resetGame() {
     closeHeaderDialogs();
     state = defaultState();
@@ -2948,6 +3070,8 @@
     statsPanel: document.querySelector(".stats"),
     tabBar: document.getElementById("tab-bar"),
     main: document.querySelector(".main"),
+    playerTitle: document.getElementById("player-title"),
+    renownBox: document.getElementById("renown-box"),
     ticker: document.getElementById("ticker"),
   };
 
@@ -3052,6 +3176,10 @@
     train: buyRankedUpgrade,
     sell: sellItem,
     "sell-spares": sellSpares,
+    tab: setTab,
+    "renown-open": openRenownConfirm,
+    "renown-cancel": cancelRenown,
+    "renown-confirm": beginNewLegend,
   };
 
   function onActionClick(ev) {
@@ -3135,6 +3263,8 @@
     alerts.gear = COLLECTIONS.some(function (set) {
       return collectionComplete(set) && !collectionRedeemed(set.id);
     });
+    alerts.armory = !state.ownedUpgrades.sword && state.gold >= UPGRADES[0].cost;
+    alerts.chronicle = state.level >= RENOWN_MIN_LEVEL;
     alerts.bosses =
       !state.fallen &&
       BOSSES.some(function (def) {
@@ -3152,6 +3282,8 @@
     band: "The Muster Horn is ready.",
     gear: "A collection is complete. Redeem it.",
     bosses: "A boss is ready to strike.",
+    armory: "You can afford the Tempered Blade.",
+    chronicle: "You can begin a new legend for Renown.",
   };
 
   function renderTabAlerts() {
@@ -3262,6 +3394,9 @@
 
   function renderStatsOnly() {
     el.name.textContent = state.name;
+    const title = renownTitle(renownRank());
+    el.playerTitle.textContent = title ? title + " · Renown " + renownRank() : "";
+    el.playerTitle.hidden = !title;
     el.level.textContent = String(state.level);
     const need = xpForLevel(state.level);
     el.xp.textContent = String(state.xp);
@@ -3437,6 +3572,29 @@
   function renderFights() {
     const frag = document.createDocumentFragment();
     const isFallen = state.fallen || state.health <= 0;
+    if (!state.ownedUpgrades.sword) {
+      const blade = UPGRADES[0];
+      const tip = document.createElement("div");
+      tip.className = "tip";
+      tip.setAttribute("data-key", "tip-blade");
+      const text = document.createElement("p");
+      text.textContent =
+        "New to the Lists? The " +
+        blade.name +
+        " (" +
+        blade.cost +
+        " gold in the Armory) adds +" +
+        BLADE_ATTACK_BONUS +
+        " attack and +35% gold. Buy it before your first bouts.";
+      const go = document.createElement("button");
+      go.type = "button";
+      go.className = "btn";
+      go.textContent = "Open Armory";
+      actionButton(go, "tab", "armory");
+      tip.appendChild(text);
+      tip.appendChild(go);
+      frag.appendChild(tip);
+    }
     FOES.forEach(function (f) {
       const locked = state.level < f.minLevel;
       const canAfford = state.stamina >= f.stamina;
@@ -4171,6 +4329,79 @@
     patchChildren(el.legendsList, frag);
   }
 
+  function renderRenown() {
+    if (!el.renownBox) return;
+    const rank = renownRank();
+    const ready = state.level >= RENOWN_MIN_LEVEL;
+    const next = rank + 1;
+    const frag = document.createDocumentFragment();
+
+    const status = document.createElement("p");
+    status.className = "renown-status";
+    status.setAttribute("data-key", "status");
+    status.innerHTML = rank
+      ? "You are <strong>" +
+        escapeHtml(renownTitle(rank)) +
+        "</strong> (Renown " +
+        rank +
+        "): +" +
+        Math.round(renownBonuses().goldMult * 100) +
+        "% gold, +" +
+        Math.round(renownBonuses().xpMult * 100) +
+        "% XP on everything."
+      : "You have no Renown yet.";
+    frag.appendChild(status);
+
+    const offer = document.createElement("p");
+    offer.className = "card-meta";
+    offer.setAttribute("data-key", "offer");
+    offer.innerHTML =
+      "A new legend makes you <strong>" +
+      escapeHtml(renownTitle(next)) +
+      "</strong> (Renown " +
+      next +
+      ": +" +
+      Math.round(next * RENOWN_GOLD_PER_RANK * 100) +
+      "% gold, +" +
+      Math.round(next * RENOWN_XP_PER_RANK * 100) +
+      "% XP). You keep your name, Renown and Legends; everything else starts over at Level 1." +
+      (ready ? "" : ' <span class="gate">Requires Level ' + RENOWN_MIN_LEVEL + ".</span>");
+    frag.appendChild(offer);
+
+    const row = document.createElement("div");
+    row.className = "dialog-row";
+    row.setAttribute("data-key", renownConfirmOpen ? "confirm-row" : "open-row");
+    if (renownConfirmOpen && ready) {
+      const warn = document.createElement("p");
+      warn.className = "renown-warn";
+      warn.textContent =
+        "This resets your level, gold, gear, band, holdings, training and collections. It can't be undone.";
+      row.appendChild(warn);
+      const yes = document.createElement("button");
+      yes.type = "button";
+      yes.className = "btn btn-danger";
+      yes.textContent = "Begin anew at Level 1";
+      actionButton(yes, "renown-confirm");
+      const no = document.createElement("button");
+      no.type = "button";
+      no.className = "btn";
+      no.textContent = "Not yet";
+      actionButton(no, "renown-cancel");
+      row.appendChild(yes);
+      row.appendChild(no);
+    } else {
+      const open = document.createElement("button");
+      open.type = "button";
+      open.className = "btn btn-primary";
+      open.textContent = "Begin a new legend";
+      open.disabled = !ready;
+      actionButton(open, "renown-open");
+      row.appendChild(open);
+    }
+    frag.appendChild(row);
+    patchChildren(el.renownBox, frag);
+  }
+
   /** Everything that can change without a player action (timers, regen, accrual). */
   function renderLive() {
     renderStatsOnly();
@@ -4184,6 +4415,7 @@
     renderInventory();
     renderCollections();
     renderShop();
+    renderRenown();
     renderTabAlerts();
   }
 
@@ -4199,6 +4431,7 @@
     renderInventory();
     renderCollections();
     renderShop();
+    renderRenown();
     renderLog();
     renderLegends();
     renderTabAlerts();
@@ -4268,6 +4501,7 @@
     REGIONS: REGIONS,
     COLLECTIONS: COLLECTIONS,
     BOSSES: BOSSES,
+    RENOWN_TITLES: RENOWN_TITLES,
     NAMED_KNIGHTS: NAMED_KNIGHTS,
     SAVE_VERSION: SAVE_VERSION,
     attackRating: attackRating,

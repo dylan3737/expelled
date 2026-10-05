@@ -164,6 +164,58 @@ body {
   outline-offset: 1px;
 }
 
+/* --- New-player tip, Renown --- */
+
+.tip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 0.75rem;
+  padding: 0.6rem 0.8rem;
+  font-size: 0.88rem;
+  background: var(--bg-card);
+  border: 1px dashed var(--gold);
+  border-radius: var(--radius);
+}
+
+.tip p {
+  flex: 1 1 16rem;
+  min-width: 0;
+  margin: 0;
+}
+
+.player-title {
+  display: block;
+  font-size: 0.78rem;
+  font-style: italic;
+  color: var(--mastery);
+}
+
+.player-title[hidden] {
+  display: none;
+}
+
+.renown-box {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.renown-box p {
+  margin: 0;
+}
+
+.renown-status strong {
+  color: var(--mastery);
+}
+
+.renown-warn {
+  flex-basis: 100%;
+  color: #e08080;
+  font-size: 0.88rem;
+}
+
 /* --- Tabs --- */
 
 .tabs {

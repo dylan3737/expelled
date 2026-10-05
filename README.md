@@ -2,7 +2,7 @@
 
 Arthurian / fantasy clicker starter in the spirit of old Facebook *Mafia Wars*: spend **Energy** on quests across **three regions** (with **mastery** + **story**), **Stamina** on arena fights and **boss** strikes, manage **Health**, grow a **knight band**, earn **gold** and **XP**, buy **holdings** for passive income, find **loot** to equip, complete **collections**, level up, and buy permanent shop upgrades. No backend — pure static HTML/CSS/JS with `localStorage` saves.
 
-**Current version: v0.6** — easier to play: tabs instead of one long page, a save backup you can copy and paste, and clearer feedback (floating gains, a level-up flash, time-until-full on Energy / Stamina / Health). v0.5 deepened the economy (ranked training, region-tiered loot you can sell, odds-based bouts, quest requirements); v0.4 added Regions, Bosses, Knight Band and Collections.
+**Current version: v0.7** — a gentler start and a longer end: a softer first foe plus a Tempered Blade tip, a third boss (**the Questing Beast**), and **Renown** (prestige). v0.6 made it easier to play: tabs instead of one long page, a save backup you can copy and paste, and clearer feedback (floating gains, a level-up flash, time-until-full on Energy / Stamina / Health). v0.5 deepened the economy (ranked training, region-tiered loot you can sell, odds-based bouts, quest requirements); v0.4 added Regions, Bosses, Knight Band and Collections.
 
 ## Resources
 
@@ -18,6 +18,24 @@ Arthurian / fantasy clicker starter in the spirit of old Facebook *Mafia Wars*: 
 - Energy regenerates about every **12s**; Stamina about every **18s** (slower, more Mafia Wars–like).
 - Quest cooldowns are **short on early jobs**, **long on late jobs** (up to a few minutes).
 - Fight opponent cooldowns are longer too.
+
+## v0.7 systems
+
+### A gentler start
+- The **Boastful Squire** drops from power 18 to 12: a fresh Level 1 knight has about 16% odds, but with the Tempered Blade it's about 88%.
+- Until you own the Blade, The Lists shows a tip with an **Open Armory** button, and the Armory tab shows a dot once you can afford it.
+
+### The Questing Beast
+| Boss | Level | HP | Regen | Stamina / strike | Counter | Kill reward | Returns |
+|------|-------|----|-------|------------------|---------|-------------|---------|
+| **The Questing Beast** | 30 | 14,000 | 40 HP/min | 10 | 18–34 | 20,000 gold, 6,000 XP, **Pellinore's Hunting Mail** (armor: +25% gold, +60 def, +20 power), Grail piece | 90 min |
+
+Strikes pay 80g / 50xp. Boss legends are now written once per legend name, so they don't repeat after a Renown reset.
+
+### Renown (prestige)
+- At **Level 30**, the Chronicle tab's **Renown** section offers **Begin a new legend** (with an in-page confirm). You restart at Level 1 and keep only your **name, Renown and Legends**; everything else resets.
+- Each Renown rank grants **+10% gold and +10% XP** on everything, permanently, and a title shown under your name: Errant Knight → Knight of the Round Table → Knight of the Grail → Peer of Logres → Pendragon's Champion (repeats past rank 5).
+- The Chronicle tab shows a dot while you're eligible.
 
 ## v0.6 interface
 
@@ -163,19 +181,18 @@ In `game.js`:
 - **Rendering** — render functions build detached nodes and `patchChildren()` morphs them into the page (keyed by `data-key`), so unchanged buttons keep their identity across ticks (no dropped clicks / hover flicker). Buttons use `data-action` / `data-id` with one delegated click listener (`ACTIONS`).
 - **Tabs / feedback** — `setTab` / `tabAlerts` / `renderTicker`; `onActionClick` snapshots gold / XP / level / health before each action and `showActionFeedback` floats the difference
 - **Backup** — `encodeBackup` / `decodeBackup`; `load()` and backup import both go through `applySaveData(data)`
-- **`save` / `load`** — `localStorage` key `ruin_wars_save_v4` (`saveVersion: 5`); falls back to legacy `ruin_wars_save_v1` and migrates. Saves happen immediately after actions, at most every ~8s from the tick when something changed, and on `visibilitychange` (hidden) / `pagehide` / `beforeunload`. The last 50 chronicle lines are saved under `log` (optional; older saves load fine without it).
+- **`save` / `load`** — `localStorage` key `ruin_wars_save_v4` (`saveVersion: 6`); falls back to legacy `ruin_wars_save_v1` and migrates. Saves happen immediately after actions, at most every ~8s from the tick when something changed, and on `visibilitychange` (hidden) / `pagehide` / `beforeunload`. The last 50 chronicle lines are saved under `log` (optional; older saves load fine without it).
 - **`window.RuinWars`** — DevTools helpers
 
 ## Save compatibility
 
-v0.5 still saves to `ruin_wars_save_v4`, now with `saveVersion: 5`; older v4 saves load as-is and gain an empty `upgradeRanks`. If no v4 save exists, the v0.3 save under `ruin_wars_save_v1` is loaded and migrated: missing fields (`region`, `collections`, `collectionsRedeemed`, `bosses`, `band`, plus the older `questCounts`, `storyUnlocks`, `holdings`, `inventory`, `equipped`) get defaults. The legacy key is left untouched, so rolling back to v0.3 still works. Use **Reset** for a clean slate.
+v0.7 still saves to `ruin_wars_save_v4`, now with `saveVersion: 6`; older v4 saves load as-is and gain `upgradeRanks: {}` (v0.5) and `renown: 0` (v0.7). If no v4 save exists, the v0.3 save under `ruin_wars_save_v1` is loaded and migrated: missing fields (`region`, `collections`, `collectionsRedeemed`, `bosses`, `band`, plus the older `questCounts`, `storyUnlocks`, `holdings`, `inventory`, `equipped`) get defaults. The legacy key is left untouched, so rolling back to v0.3 still works. Use **Reset** for a clean slate.
 
 ## Suggested next features
 
-1. Prestige / New Game+ that keeps a banner title after a soft reset.
-2. A third boss (the Questing Beast?) and more region-specific foes in The Lists.
-3. Achievements and a daily login reward.
-4. Optional sound cues.
+1. Achievements and a daily login reward.
+2. More region-specific foes in The Lists.
+3. Optional sound cues.
 
 ## License
 
