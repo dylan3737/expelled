@@ -1,5 +1,5 @@
 /**
- * Ruin Wars — core game loop (v0.7)
+ * Ruin Wars — core game loop (v0.7). Content tables live in content.js, pure formulas in formulas.js.
  * Quests (Energy) across Regions + mastery/story/requirements, The Lists (Stamina/Health, odds-based
  * bouts), Bosses, Knight Band, Holdings (passive gold), Loot/Inventory (region tiers, equip, sell),
  * Collections, shop upgrades + ranked training.
@@ -11,6 +11,7 @@
 
   const SAVE_KEY = "ruin_wars_save_v4";
   const LEGACY_SAVE_KEYS = ["ruin_wars_save_v1"];
+  const UNREADABLE_SAVE_KEY = "ruin_wars_save_unreadable"; // copy of a save that failed to load
   const SAVE_VERSION = 6;
   const TICK_MS = 1000;
   const BASE_ENERGY_MAX = 25;
@@ -21,12 +22,8 @@
   const HEALTH_REGEN_MS = 20000;
   const LOG_MAX = 50; // chronicle lines kept in memory and persisted in the save
   const SAVE_INTERVAL_MS = 8000; // tick-driven saves are throttled to this when state is dirty
-  const BLADE_ATTACK_BONUS = 12;
   const LOOT_DROP_CHANCE = 0.22;
   const LOOT_DROP_FIGHT = 0.12;
-  const FIGHT_ODDS_EXPONENT = 4; // win chance = atk^k / (atk^k + foe^k): 50% at even, ~67% at +20%
-  const FIGHT_ODDS_MIN = 0.05;
-  const FIGHT_ODDS_MAX = 0.95;
   const RENOWN_MIN_LEVEL = 30; // level needed to begin a new legend (prestige)
   const RENOWN_GOLD_PER_RANK = 0.1;
   const RENOWN_XP_PER_RANK = 0.1;
@@ -38,7 +35,6 @@
     "Peer of Logres",
     "Pendragon's Champion",
   ];
-  const UPSET_BONUS = 2; // reward × (1 + UPSET_BONUS × (0.5 − odds)) when winning with odds below 50%
   const MASTERY_THRESHOLDS = [5, 15, 40];
   const MASTERY_RANKS = ["Unproven", "Proven", "Veteran", "Master"];
   const HOLDING_CAP_CYCLES = 2;
@@ -46,33 +42,7 @@
   const COLLECTION_DROP_FIGHT = 0.1;
   const BAND_ATTACK_PER_RECRUIT = 2;
   const BAND_DEFENSE_PER_RECRUIT = 2;
-  const BAND_CAP_BASE = 2; // hired cap = BASE + level (max BAND_CAP_MAX)
-  const BAND_CAP_MAX = 60;
-  const BAND_HIRE_BASE = 30; // gold for the first hire; +BAND_HIRE_STEP per recruit already in the band
-  const BAND_HIRE_STEP = 20;
   const RALLY_COOLDOWN_MS = 10 * 60 * 1000; // free recruit every 10 min
-  const DEFENSE_SOAK = 150; // damage taken × (1 - def / (def + DEFENSE_SOAK))
-
-  /** XP needed to go from `level` to level+1 — kept gentle early */
-  function xpForLevel(level) {
-    return Math.floor(35 + level * 22 + Math.pow(level, 1.15) * 6);
-  }
-
-  /**
-   * Quest cooldown: mild on early jobs, long on big ones (A+B pacing).
-   * Energy/Stamina regen is also slow — MW-style resource wait + job rests.
-   */
-  function cooldownMsFor(quest) {
-    if (quest.cooldownMs) return quest.cooldownMs; // explicit rests on Avalon / Wastes jobs
-    var e = quest.energy;
-    if (e <= 5) {
-      return 6000 + e * 2000; // ~12–16s early jobs
-    }
-    if (e <= 10) {
-      return 45000 + (e - 5) * 8000; // ~45–85s mid
-    }
-    return 120000 + (e - 10) * 18000; // ~2–3.5 min late jobs
-  }
 
   function questCooldownRemaining(questId) {
     const until = (state.questCooldownUntil && state.questCooldownUntil[questId]) || 0;
@@ -82,14 +52,6 @@
   function fightCooldownRemaining(foeId) {
     const until = (state.fightCooldownUntil && state.fightCooldownUntil[foeId]) || 0;
     return Math.max(0, until - Date.now());
-  }
-
-  function formatCooldown(ms) {
-    const s = Math.ceil(ms / 1000);
-    if (s < 60) return s + "s";
-    const m = Math.floor(s / 60);
-    const r = s % 60;
-    return m + "m " + r + "s";
   }
 
   function formatSeconds(sec) {
@@ -103,1090 +65,29 @@
     return min + Math.floor(Math.random() * (max - min + 1));
   }
 
-  // --- Content tables ---
+  // --- Content tables (content.js) and pure formulas (formulas.js) ---
 
-  /** Regions gate quest boards. Camelot = the original six jobs. */
-  const REGIONS = [
-    {
-      id: "camelot",
-      name: "Camelot",
-      desc: "The ruined heart of Logres — walls, roads, tombs and the old keep.",
-      minLevel: 1,
-    },
-    {
-      id: "avalon",
-      name: "Avalon",
-      desc: "The misted isle of apples, where the Lady keeps her secrets.",
-      minLevel: 10,
-    },
-    {
-      id: "wastes",
-      name: "The Wastes",
-      desc: "The blighted land of the wounded king, and the road to Camlann.",
-      minLevel: 20,
-    },
-  ];
-
-  /**
-   * Quest `requires` (all optional): band = minimum knights in your band (sworn + named),
-   * weapon / armor = something must be equipped in that slot.
-   */
-  const QUESTS = [
-    {
-      id: "patrol",
-      region: "camelot",
-      name: "Patrol the Outer Walls",
-      desc: "Walk the crumbling battlements.",
-      energy: 3,
-      gold: 18,
-      xp: 28,
-      minLevel: 1,
-    },
-    {
-      id: "bandits",
-      region: "camelot",
-      name: "Drive Off Bandits",
-      desc: "Clear the road to the ruined chapel.",
-      energy: 5,
-      gold: 35,
-      xp: 48,
-      minLevel: 1,
-    },
-    {
-      id: "relics",
-      region: "camelot",
-      name: "Scavenge Relics",
-      desc: "Search mossy tombs for forgotten coin.",
-      energy: 7,
-      gold: 60,
-      xp: 75,
-      minLevel: 2,
-    },
-    {
-      id: "wyrm",
-      region: "camelot",
-      name: "Hunt the Marsh Wyrm",
-      desc: "A lesser beast plagues the fen.",
-      energy: 10,
-      gold: 95,
-      xp: 110,
-      minLevel: 3,
-      requires: { band: 2 },
-    },
-    {
-      id: "siege",
-      region: "camelot",
-      name: "Hold the Broken Keep",
-      desc: "Stand watch through the night.",
-      energy: 12,
-      gold: 140,
-      xp: 155,
-      minLevel: 5,
-      requires: { band: 4 },
-    },
-    {
-      id: "grail",
-      region: "camelot",
-      name: "Quest for the Lost Chalice",
-      desc: "Venture deep into the old kingdom.",
-      energy: 15,
-      gold: 210,
-      xp: 230,
-      minLevel: 7,
-      requires: { band: 6, weapon: true },
-    },
-    // --- Avalon (Level 10+) ---
-    {
-      id: "mists",
-      region: "avalon",
-      name: "Cross the Mists",
-      desc: "Pole a barge through fog that remembers every drowned oath.",
-      energy: 14,
-      gold: 260,
-      xp: 270,
-      minLevel: 10,
-      cooldownMs: 150000,
-    },
-    {
-      id: "lady",
-      region: "avalon",
-      name: "Parley with the Lady of the Lake",
-      desc: "Kneel at the water's edge and answer her riddles truly.",
-      energy: 16,
-      gold: 320,
-      xp: 320,
-      minLevel: 11,
-      cooldownMs: 165000,
-    },
-    {
-      id: "groves",
-      region: "avalon",
-      name: "Guard the Apple Groves",
-      desc: "Thieves from the mainland covet fruit that grants long life.",
-      energy: 18,
-      gold: 380,
-      xp: 370,
-      minLevel: 12,
-      requires: { band: 10 },
-      cooldownMs: 180000,
-    },
-    {
-      id: "faerie",
-      region: "avalon",
-      name: "Break the Faerie Ring",
-      desc: "Pull lost squires out of a dance that has lasted a century.",
-      energy: 20,
-      gold: 450,
-      xp: 420,
-      minLevel: 14,
-      requires: { armor: true },
-      cooldownMs: 195000,
-    },
-    {
-      id: "morgan",
-      region: "avalon",
-      name: "Unmask Morgan's Illusions",
-      desc: "The sorceress weaves false castles. Find the true door.",
-      energy: 22,
-      gold: 540,
-      xp: 480,
-      minLevel: 16,
-      requires: { band: 14 },
-      cooldownMs: 210000,
-    },
-    {
-      id: "scabbard",
-      region: "avalon",
-      name: "Recover the Lost Scabbard",
-      desc: "The sheath that kept the king from bleeding lies somewhere on the isle.",
-      energy: 24,
-      gold: 640,
-      xp: 550,
-      minLevel: 18,
-      requires: { band: 16, weapon: true, armor: true },
-      cooldownMs: 225000,
-    },
-    // --- The Wastes (Level 20+) ---
-    {
-      id: "ashroad",
-      region: "wastes",
-      name: "Ride the Ashen Road",
-      desc: "Nothing grows here. Even the crows travel in pairs.",
-      energy: 20,
-      gold: 600,
-      xp: 560,
-      minLevel: 20,
-      requires: { band: 16 },
-      cooldownMs: 210000,
-    },
-    {
-      id: "unquiet",
-      region: "wastes",
-      name: "Lay the Unquiet Dead",
-      desc: "Barrow-knights rise at dusk, still loyal to a dead cause.",
-      energy: 23,
-      gold: 720,
-      xp: 650,
-      minLevel: 21,
-      requires: { weapon: true },
-      cooldownMs: 225000,
-    },
-    {
-      id: "warband",
-      region: "wastes",
-      name: "Scatter the Saxon Warband",
-      desc: "Raiders burn what little the blight has left.",
-      energy: 26,
-      gold: 860,
-      xp: 740,
-      minLevel: 23,
-      requires: { band: 22 },
-      cooldownMs: 240000,
-    },
-    {
-      id: "fisher",
-      region: "wastes",
-      name: "Attend the Fisher King",
-      desc: "Sit with the wounded king and ask the question no one asked.",
-      energy: 29,
-      gold: 1000,
-      xp: 830,
-      minLevel: 25,
-      requires: { band: 24, armor: true },
-      cooldownMs: 255000,
-    },
-    {
-      id: "camlann",
-      region: "wastes",
-      name: "Scout the Field of Camlann",
-      desc: "Where the last battle waits. Learn the ground before it learns you.",
-      energy: 32,
-      gold: 1180,
-      xp: 930,
-      minLevel: 27,
-      requires: { band: 28 },
-      cooldownMs: 270000,
-    },
-    {
-      id: "throne",
-      region: "wastes",
-      name: "Reclaim the Hollow Throne",
-      desc: "A seat of grey stone at the end of the world, waiting for a rightful heir.",
-      energy: 35,
-      gold: 1400,
-      xp: 1050,
-      minLevel: 30,
-      requires: { band: 30, weapon: true, armor: true },
-      cooldownMs: 300000,
-    },
-  ];
-
-  /** Arthurian story beats keyed by questId + milestone threshold */
-  const STORY_BEATS = {
-    patrol: {
-      5: "On the fifth circuit of the walls you find a knight's boot-print in the frost — facing outward, never returning. The watchmen say the old king walked these stones alone. You begin to understand why the battlements still hold.",
-      15: "Veterans of the wall salute you now. A raven nests in the gatehouse; some claim it speaks the names of kings. You leave a coin for the bird and keep walking — the realm needs eyes more than omens.",
-      40: "Master of the Outer Walls: the stones remember your tread. In a dream the Round Table's empty seats catch moonlight, and a voice asks only that you keep the watch. You wake knowing the wall is yours as much as any crown.",
-    },
-    bandits: {
-      5: "The road to the chapel runs red with bandit blood — and once, with yours. A dying thief presses a scrap of silk into your hand: a lady's favor from a court that no longer stands. You bury him facing the chapel door.",
-      15: "Word spreads that the chapel road is safe again. Pilgrims leave bread at your camp. An old woman swears you ride with the ghost of Galahad; you tell her you only clear the path. She smiles as if that were enough.",
-      40: "Master of the Road: the outlaws flee at your banner. In the chapel crypt you find a ledger of stolen tithes — and reverse every entry in gold of your own. The priest calls it penance; the land calls it justice.",
-    },
-    relics: {
-      5: "Beneath moss and bone you uncover a chalice rim, cracked and dull. It does not glow. It only feels warm when you think of home. You wrap it in cloth and wonder what 'holy' meant before the kingdoms fell.",
-      15: "Tombs yield more than coin: a broken lance-tip etched with a star. Scholars of the ruin say it matched Lancelot's mark. You keep it not for glory, but because someone should remember the names the moss tried to erase.",
-      40: "Master Scavenger: the dead no longer begrudge your visits. One night a white stag leads you to a sealed alcove — empty, save for a single line carved in Latin: 'The quest is the keeping.' You leave a flower and take nothing.",
-    },
-    wyrm: {
-      5: "The marsh wyrm's blood hisses on cold steel. Fen-folk say lesser dragons once served the Lady of the Lake. This one served hunger alone. You burn the carcass so nothing darker claims the bones.",
-      15: "Veterans of the fen call you Wyrm-Bane. Children dare each other to touch your shield. You teach them to read the mud for tracks instead — the marsh still breeds worse than one beast's brood.",
-      40: "Master of the Marsh: the last wyrm bows its head before you strike. In its eye you see a reflection of a lake that is not there. When the blade falls, the water smells faintly of lilies for an hour. Then only peat again.",
-    },
-    siege: {
-      5: "Night one on the Broken Keep: arrows in the dark, a song from the courtyard that no living throat could finish. You hold the stair. At dawn the song is gone, and so are three of your companions. You carve their names into the gate.",
-      15: "The Keep knows your footsteps. Siege-engines rust beyond the ditch; you oil one ballista anyway. A messenger from a rival lord offers gold to abandon the watch. You send him home with his purse lighter and his pride intact.",
-      40: "Master of the Broken Keep: the night no longer tests you — it trusts you. In the great hall's ash you find a single unbroken goblet. You fill it with rainwater and toast the absent kings. The Keep stands because you do.",
-    },
-    grail: {
-      5: "Deep in the old kingdom you drink from a spring that tastes of iron and honey. Visions flicker: a table, a wound that will not close, a question never asked. You wake with wet boots and a purpose sharper than before.",
-      15: "The Lost Chalice remains lost — yet the seeking has remade you. Hermits call you Grail-Touched. You answer that you have found only roads, ruins, and the courage to walk them again. They say that is the chalice's first gift.",
-      40: "Master of the Quest: you stand where maps end. No cup appears. Instead, a quiet certainty — that the kingdom's healing was never a prize to seize, but a duty to keep. You turn homeward, lighter, and the path blooms behind you.",
-    },
-    // --- Avalon ---
-    mists: {
-      5: "The ferryman will not speak your name aloud; in Avalon, names are handles, and the mist has many hands. You learn to steer by the smell of apples and the sound of distant bells.",
-      15: "The fog parts for your barge now, as it once parted for a dying king. Halfway across you see him — or his reflection — lying in state beneath the water. You do not stop. He would not want you to.",
-      40: "Master of the Mists: the isle no longer hides from you. The ferryman hands you his pole and steps ashore for the first time in a hundred years. 'Someone must carry the next king,' he says. 'Practise.'",
-    },
-    lady: {
-      5: "Her first riddle: 'What is kept by giving it away?' You answer 'a sword,' and the lake laughs. Wrong — but honest. She asks you to return tomorrow.",
-      15: "The Lady shows you the hand that caught Excalibur — hers, pale and patient. 'Every blade goes home,' she says. 'Even yours, one day. Carry it well until then.'",
-      40: "Master of the Parley: the Lady names you friend of the lake. Fish rise to your shadow; rain falls gently where you camp. She will not give you a sword. She gives you something harder — her trust.",
-    },
-    groves: {
-      5: "A mainland thief begs mercy with an apple in each fist. One bite of Avalon fruit adds a year to a life, they say. You let him keep one. The other you plant at the grove's edge.",
-      15: "The tree you planted has fruited overnight. The grove-wardens bow to you and whisper that the isle has begun to count you among its roots.",
-      40: "Master of the Groves: no thief dares the orchard now. On the longest night the trees sing — a low hum like a harp string — and you understand they have been singing for Arthur all along.",
-    },
-    faerie: {
-      5: "You drag a squire out of the ring. He swears he stepped in this morning; his armour is a century out of fashion. You find him a horse and do not tell him how long his lady has waited.",
-      15: "The faerie court sends an envoy: a hare with silver eyes. It offers you one dance, no strings. You decline politely. It seems impressed that you knew to.",
-      40: "Master of the Ring: the dance ends. Every lost squire walks home. The Faerie Queen leaves a single white rose on your saddle — a truce, or a warning. With the fair folk, it is always both.",
-    },
-    morgan: {
-      5: "Morgan's castle has a hundred doors and one keyhole. You find it by watching where the cat will not walk. Inside is only a mirror, and your face in it looks older.",
-      15: "She speaks to you at last, from every reflection at once. 'I was his sister before I was his enemy,' she says. 'Remember that, when the songs are written.'",
-      40: "Master of Illusions: no glamour holds you now. Morgan drops her masks and shows you her true face — tired, grieving, fierce. 'Go to the Wastes,' she says. 'My son is waiting there.'",
-    },
-    scabbard: {
-      5: "The scabbard was stolen by Morgan long ago, then lost by her too. Every cairn on the isle claims to hide it. Every cairn lies. You keep searching.",
-      15: "You find a silver buckle worn smooth by a king's hip. Close, now. The wound on your arm from last week's quest closes as you hold it.",
-      40: "Master of the Scabbard: it lies in a hollow oak, humble as a shepherd's sheath. You do not keep it. You bear it to the Lady, who weeps once and says, 'Now he may rest.'",
-    },
-    // --- The Wastes ---
-    ashroad: {
-      5: "The Ashen Road runs straight as a spear to the horizon. Your horse will not drink from the wells. Neither, after the first taste, will you.",
-      15: "Travellers now follow your tracks through the ash. You leave cairns at the crossroads and water where you can. It is not much. In the Wastes, it is everything.",
-      40: "Master of the Ashen Road: a single green shoot breaks the grey where you have ridden most. The blight is not lifting — but it has noticed you.",
-    },
-    unquiet: {
-      5: "The barrow-knight salutes before he fights you. He still wears Arthur's colours, faded to bone. When he falls, he thanks you.",
-      15: "You learn the names of the unquiet dead from their shields and carve them into a standing stone. Fewer rise each night. The dead, too, wish to be remembered.",
-      40: "Master of the Barrows: the last of them kneels, offers his sword hilt-first, and crumbles to dust. The wind that follows smells, briefly, of summer in Camelot.",
-    },
-    warband: {
-      5: "The Saxons fight like men with nothing left to lose — because they have nothing left. You spare the youngest and send him home with a loaf.",
-      15: "A Saxon chief proposes truce: his people will leave the Wastes if yours will let them cross in peace. You shake his hand. Neither of you trusts the other. Both of you keep the word.",
-      40: "Master of the Warband: the raids end. Saxon and Briton dig a well together at the edge of the blight. It is the strangest victory you have ever won, and the best.",
-    },
-    fisher: {
-      5: "The Fisher King sits in his boat on a dead lake, wound weeping, line untouched. You sit beside him. Neither of you speaks. It seems to help.",
-      15: "You ask at last: 'Lord, what ails you?' He smiles for the first time in years. 'Only the waiting,' he says. Far away, a river begins to run.",
-      40: "Master of the Fisher King's Court: the king's wound closes. Where his tears fall, grass returns. 'The Grail was always the question,' he tells you. 'You asked it.'",
-    },
-    camlann: {
-      5: "The Field of Camlann is quiet, as graves are quiet. You walk it at dawn and find arrowheads from a battle that has not yet happened.",
-      15: "You map every ditch and hillock. In your dreams, two armies face each other here and a single adder stirs in the heather. You wake reaching for your sword.",
-      40: "Master of Camlann: you know this field better than any living soul. When the last battle comes, you will not be surprised. That may be the only mercy fate allows.",
-    },
-    throne: {
-      5: "The Hollow Throne is carved from a single grey stone. It is cold, and it is empty, and it is waiting — though not, you think, for you.",
-      15: "You sit upon it once, in secret. For a heartbeat you see all of Logres, whole and green. Then only ash again. You do not sit there twice.",
-      40: "Master of the Hollow Throne: you understand at last. The throne is not a prize. It is a promise — that the king will return when the land needs him most. You swear to keep it warm.",
-    },
-  };
-
-  /** Legends written when a boss falls for the first time */
-  const BOSS_LEGENDS = {
-    green_knight:
-      "The Green Knight's head rolls across the Yule-hall floor — and he stoops, lifts it by the hair, and laughs. 'A year and a day,' says the head. 'Then it is my turn.' You have won nothing but a debt of honor, and you have never been prouder.",
-    questing_beast:
-      "The Questing Beast falls in a thicket at the edge of the Wastes, and for the first time in living memory the baying in its belly goes quiet. Somewhere, an old king's ghost lowers his spear at last. You do not feel triumphant. You feel the silence, and how long it was coming.",
-    mordred:
-      "On the Field of Camlann, Mordred falls at last, Clarent shattered beneath him. With his last breath he whispers not a curse but a name — his father's. The ravens circle once and leave. The long night of Logres is ending, though no song will call it a victory.",
-  };
-
-  /** Per-quest mastery bonuses: index 0 unused; 1=Proven, 2=Veteran, 3=Master (cumulative) */
-  const MASTERY_BONUSES = {
-    // goldAdd / xpAdd are additive multipliers on THAT quest only (0.02 = +2%)
-    1: { goldAdd: 0.02, xpAdd: 0 },
-    2: { goldAdd: 0.02, xpAdd: 0.02 },
-    3: { goldAdd: 0.03, xpAdd: 0.02 },
-  };
-
-  const FOES = [
-    {
-      id: "squire",
-      name: "Boastful Squire",
-      desc: "Eager steel, little skill.",
-      stamina: 3,
-      power: 12,
-      gold: 12,
-      xp: 18,
-      dmgMin: 4,
-      dmgMax: 10,
-      cooldownMs: 25000,
-      minLevel: 1,
-    },
-    {
-      id: "outlaw",
-      name: "Roadside Outlaw",
-      desc: "A cutpurse who thinks himself a knight.",
-      stamina: 5,
-      power: 32,
-      gold: 28,
-      xp: 36,
-      dmgMin: 8,
-      dmgMax: 16,
-      cooldownMs: 35000,
-      minLevel: 1,
-    },
-    {
-      id: "hedge",
-      name: "Hedge Knight",
-      desc: "Scarred mail and a borrowed lance.",
-      stamina: 7,
-      power: 48,
-      gold: 48,
-      xp: 55,
-      dmgMin: 12,
-      dmgMax: 22,
-      cooldownMs: 45000,
-      minLevel: 2,
-    },
-    {
-      id: "captain",
-      name: "Ruined Watch Captain",
-      desc: "Still keeps the old codes — and a sharp blade.",
-      stamina: 9,
-      power: 68,
-      gold: 75,
-      xp: 85,
-      dmgMin: 16,
-      dmgMax: 28,
-      cooldownMs: 60000,
-      minLevel: 4,
-    },
-    {
-      id: "black",
-      name: "Black Banner Champion",
-      desc: "The lists' terror; few leave unscathed.",
-      stamina: 12,
-      power: 95,
-      gold: 120,
-      xp: 130,
-      dmgMin: 22,
-      dmgMax: 38,
-      cooldownMs: 90000,
-      minLevel: 6,
-    },
-    {
-      id: "faerie_champion",
-      region: "avalon",
-      name: "Faerie Champion",
-      desc: "Avalon's duellist; blade of glass, grin of a cat.",
-      stamina: 14,
-      power: 140,
-      gold: 200,
-      xp: 200,
-      dmgMin: 26,
-      dmgMax: 44,
-      cooldownMs: 120000,
-      minLevel: 11,
-    },
-    {
-      id: "outrider",
-      region: "wastes",
-      name: "Mordred's Outrider",
-      desc: "Black-mailed scout of the traitor prince, out of the Wastes.",
-      stamina: 16,
-      power: 230,
-      gold: 380,
-      xp: 330,
-      dmgMin: 34,
-      dmgMax: 56,
-      cooldownMs: 150000,
-      minLevel: 20,
-    },
-  ];
-
-  const HEALS = [
-    {
-      id: "poultice",
-      name: "Small Poultice",
-      desc: "Chapel salve. Restores 40 Health.",
-      cost: 15,
-      heal: 40,
-    },
-    {
-      id: "fullrest",
-      name: "Full Rest",
-      desc: "A night under the chapel roof. Restore all Health.",
-      cost: 40,
-      heal: "full",
-    },
-  ];
-
-  const UPGRADES = [
-    {
-      id: "sword",
-      name: "Tempered Blade",
-      desc: "+35% gold from every quest; +12 attack power in The Lists",
-      cost: 40,
-      effect: { goldMult: 0.35, attackBonus: BLADE_ATTACK_BONUS },
-    },
-    {
-      id: "cloak",
-      name: "Cloak of Rest",
-      desc: "Energy regenerates 40% faster",
-      cost: 55,
-      effect: { regenMult: 0.4 },
-    },
-    {
-      id: "banner",
-      name: "Banner of Valor",
-      desc: "+30% XP from every quest",
-      cost: 70,
-      effect: { xpMult: 0.3 },
-    },
-  ];
-
-  /**
-   * Ranked training — bought again and again. Cost of the next rank = baseCost × growth^rank
-   * (rounded to 5). Effects are per rank and stack with everything else.
-   */
-  const RANKED_UPGRADES = [
-    {
-      id: "whetstone",
-      name: "Whetstone Drills",
-      desc: "+4 attack per rank",
-      baseCost: 150,
-      growth: 1.35,
-      maxRank: 20,
-      effect: { attack: 4 },
-    },
-    {
-      id: "shieldwall",
-      name: "Shield-Wall Drills",
-      desc: "+4 defense per rank",
-      baseCost: 150,
-      growth: 1.35,
-      maxRank: 20,
-      effect: { defense: 4 },
-    },
-    {
-      id: "ledger",
-      name: "Steward's Ledger",
-      desc: "+3% gold per rank",
-      baseCost: 250,
-      growth: 1.4,
-      maxRank: 20,
-      effect: { goldMult: 0.03 },
-    },
-    {
-      id: "tomes",
-      name: "Scholar's Tomes",
-      desc: "+3% XP per rank",
-      baseCost: 250,
-      growth: 1.4,
-      maxRank: 20,
-      effect: { xpMult: 0.03 },
-    },
-    {
-      id: "wagon",
-      name: "Provisioner's Wagon",
-      desc: "+3 max Energy per rank",
-      baseCost: 400,
-      growth: 1.5,
-      maxRank: 10,
-      effect: { energyMax: 3 },
-    },
-  ];
-
-  /** Holdings: passive gold. cycleSec = real seconds per income tick. maxLevel = purchase + upgrades */
-  const HOLDINGS = [
-    {
-      id: "farm",
-      region: "camelot",
-      name: "Millet Farm",
-      desc: "Humble fields beyond the ditch. Slow coin, honest work.",
-      cost: 75,
-      minLevel: 1,
-      cycleSec: 60,
-      baseGold: 8,
-      upgradeCost: [120, 200],
-      upgradeGoldAdd: [4, 6],
-      maxLevel: 2,
-    },
-    {
-      id: "chapel_lands",
-      region: "camelot",
-      name: "Chapel Tithe Lands",
-      desc: "Orchards pledged to the ruined chapel. Pilgrims leave coins.",
-      cost: 180,
-      minLevel: 2,
-      cycleSec: 90,
-      baseGold: 16,
-      upgradeCost: [250, 400],
-      upgradeGoldAdd: [8, 12],
-      maxLevel: 2,
-    },
-    {
-      id: "watchtower",
-      region: "camelot",
-      name: "Watchtower Toll",
-      desc: "A lean tower on the trade road. Merchants pay for safe passage.",
-      cost: 400,
-      minLevel: 3,
-      cycleSec: 120,
-      baseGold: 30,
-      upgradeCost: [500, 750],
-      upgradeGoldAdd: [12, 18],
-      maxLevel: 2,
-    },
-    {
-      id: "ruin_market",
-      region: "camelot",
-      name: "Ruin Market Stall",
-      desc: "Vendors under broken arches. Relics and rumors change hands.",
-      cost: 850,
-      minLevel: 5,
-      cycleSec: 150,
-      baseGold: 55,
-      upgradeCost: [900, 1400],
-      upgradeGoldAdd: [20, 30],
-      maxLevel: 2,
-    },
-    {
-      id: "apple_orchard",
-      region: "avalon",
-      name: "Isle Apple Orchard",
-      desc: "A walled orchard on Avalon's shore. Healers pay dearly for the fruit.",
-      cost: 3000,
-      minLevel: 10,
-      cycleSec: 180,
-      baseGold: 140,
-      upgradeCost: [3200, 4800],
-      upgradeGoldAdd: [60, 90],
-      maxLevel: 2,
-    },
-    {
-      id: "salt_fort",
-      region: "wastes",
-      name: "Salt Road Fort",
-      desc: "The only safe waystation in the Wastes. Caravans pay any toll.",
-      cost: 8000,
-      minLevel: 20,
-      cycleSec: 240,
-      baseGold: 360,
-      upgradeCost: [8000, 12000],
-      upgradeGoldAdd: [150, 220],
-      maxLevel: 2,
-    },
-  ];
-
-  /**
-   * Loot table — weapons/armor equip (1 each); relics are passive while owned.
-   * weight: relative drop weight when a loot roll succeeds.
-   */
-  /**
-   * Loot. Random drops come from the pool of the region they were won in (quest region, or the
-   * foe's region in The Lists), so later regions drop stronger gear. `value` = gold when sold.
-   */
-  const LOOT = [
-    {
-      id: "ashwood_spear",
-      region: "camelot",
-      name: "Ashwood Spear",
-      slot: "weapon",
-      desc: "+4 fight power",
-      weight: 28,
-      value: 15,
-      effect: { attack: 4 },
-    },
-    {
-      id: "knight_longsword",
-      region: "camelot",
-      name: "Knight's Longsword",
-      slot: "weapon",
-      desc: "+9 fight power",
-      weight: 16,
-      value: 40,
-      effect: { attack: 9 },
-    },
-    {
-      id: "grail_blade",
-      region: "camelot",
-      name: "Grail-Touched Blade",
-      slot: "weapon",
-      desc: "+15 fight power",
-      weight: 6,
-      value: 120,
-      effect: { attack: 15 },
-    },
-    {
-      id: "leather_brigandine",
-      region: "camelot",
-      name: "Leather Brigandine",
-      slot: "armor",
-      desc: "+3% quest gold",
-      weight: 26,
-      value: 15,
-      effect: { goldMult: 0.03 },
-    },
-    {
-      id: "mail_hauberk",
-      region: "camelot",
-      name: "Mail Hauberk",
-      slot: "armor",
-      desc: "+6% quest gold; +3 fight power",
-      weight: 14,
-      value: 40,
-      effect: { goldMult: 0.06, attack: 3 },
-    },
-    {
-      id: "sanctified_plate",
-      region: "camelot",
-      name: "Sanctified Plate",
-      slot: "armor",
-      desc: "+10% quest gold; +5 fight power",
-      weight: 5,
-      value: 120,
-      effect: { goldMult: 0.1, attack: 5 },
-    },
-    {
-      id: "pilgrim_token",
-      region: "camelot",
-      name: "Pilgrim's Token",
-      slot: "relic",
-      desc: "+3% XP (passive while kept)",
-      weight: 20,
-      value: 20,
-      effect: { xpMult: 0.03 },
-    },
-    {
-      id: "fen_wyrm_scale",
-      region: "camelot",
-      name: "Fen Wyrm Scale",
-      slot: "relic",
-      desc: "+4% gold (passive while kept)",
-      weight: 14,
-      value: 30,
-      effect: { goldMult: 0.04 },
-    },
-    {
-      id: "chalice_shard",
-      region: "camelot",
-      name: "Broken Chalice Shard",
-      slot: "relic",
-      desc: "+3% XP and +2% gold (passive)",
-      weight: 8,
-      value: 60,
-      effect: { xpMult: 0.03, goldMult: 0.02 },
-    },
-    // --- Avalon (quests and foes from Level 10) ---
-    {
-      id: "lakesteel_sword",
-      region: "avalon",
-      name: "Lakesteel Sword",
-      slot: "weapon",
-      desc: "+22 fight power",
-      weight: 28,
-      value: 80,
-      effect: { attack: 22 },
-    },
-    {
-      id: "glass_rapier",
-      region: "avalon",
-      name: "Faerie-Glass Rapier",
-      slot: "weapon",
-      desc: "+32 fight power",
-      weight: 14,
-      value: 200,
-      effect: { attack: 32 },
-    },
-    {
-      id: "avalon_lance",
-      region: "avalon",
-      name: "Lance of Avalon",
-      slot: "weapon",
-      desc: "+45 fight power, +5 defense",
-      weight: 5,
-      value: 600,
-      effect: { attack: 45, defense: 5 },
-    },
-    {
-      id: "mistweave_gambeson",
-      region: "avalon",
-      name: "Mistweave Gambeson",
-      slot: "armor",
-      desc: "+8% gold; +10 defense",
-      weight: 26,
-      value: 80,
-      effect: { goldMult: 0.08, defense: 10 },
-    },
-    {
-      id: "lakeshore_hauberk",
-      region: "avalon",
-      name: "Lakeshore Hauberk",
-      slot: "armor",
-      desc: "+12% gold; +18 defense, +6 fight power",
-      weight: 14,
-      value: 200,
-      effect: { goldMult: 0.12, defense: 18, attack: 6 },
-    },
-    {
-      id: "blessed_plate",
-      region: "avalon",
-      name: "Lady's Blessed Plate",
-      slot: "armor",
-      desc: "+16% gold; +28 defense, +10 fight power",
-      weight: 5,
-      value: 600,
-      effect: { goldMult: 0.16, defense: 28, attack: 10 },
-    },
-    {
-      id: "apple_seed",
-      region: "avalon",
-      name: "Avalon Apple Seed",
-      slot: "relic",
-      desc: "+5% XP (passive while kept)",
-      weight: 20,
-      value: 100,
-      effect: { xpMult: 0.05 },
-    },
-    {
-      id: "faerie_token",
-      region: "avalon",
-      name: "Faerie Ring Token",
-      slot: "relic",
-      desc: "+6% gold (passive while kept)",
-      weight: 14,
-      value: 150,
-      effect: { goldMult: 0.06 },
-    },
-    {
-      id: "lake_pearl",
-      region: "avalon",
-      name: "Silver Lake Pearl",
-      slot: "relic",
-      desc: "+5% XP and +4% gold (passive)",
-      weight: 8,
-      value: 300,
-      effect: { xpMult: 0.05, goldMult: 0.04 },
-    },
-    // --- The Wastes (quests and foes from Level 20) ---
-    {
-      id: "ashen_warblade",
-      region: "wastes",
-      name: "Ashen Warblade",
-      slot: "weapon",
-      desc: "+40 fight power",
-      weight: 28,
-      value: 200,
-      effect: { attack: 40 },
-    },
-    {
-      id: "barrow_axe",
-      region: "wastes",
-      name: "Barrow-King's Axe",
-      slot: "weapon",
-      desc: "+55 fight power, +5 defense",
-      weight: 14,
-      value: 500,
-      effect: { attack: 55, defense: 5 },
-    },
-    {
-      id: "fisher_spear",
-      region: "wastes",
-      name: "Fisher King's Spear",
-      slot: "weapon",
-      desc: "+75 fight power, +10 defense",
-      weight: 5,
-      value: 1500,
-      effect: { attack: 75, defense: 10 },
-    },
-    {
-      id: "ash_brigandine",
-      region: "wastes",
-      name: "Ash-Grey Brigandine",
-      slot: "armor",
-      desc: "+10% gold; +18 defense",
-      weight: 26,
-      value: 200,
-      effect: { goldMult: 0.1, defense: 18 },
-    },
-    {
-      id: "barrow_mail",
-      region: "wastes",
-      name: "Barrow Mail",
-      slot: "armor",
-      desc: "+15% gold; +30 defense, +10 fight power",
-      weight: 14,
-      value: 500,
-      effect: { goldMult: 0.15, defense: 30, attack: 10 },
-    },
-    {
-      id: "pendragon_plate",
-      region: "wastes",
-      name: "Pendragon Plate",
-      slot: "armor",
-      desc: "+20% gold; +45 defense, +15 fight power",
-      weight: 5,
-      value: 1500,
-      effect: { goldMult: 0.2, defense: 45, attack: 15 },
-    },
-    {
-      id: "crow_feather",
-      region: "wastes",
-      name: "Blighted Crow Feather",
-      slot: "relic",
-      desc: "+6% XP (passive while kept)",
-      weight: 20,
-      value: 250,
-      effect: { xpMult: 0.06 },
-    },
-    {
-      id: "hack_silver",
-      region: "wastes",
-      name: "Saxon Hack-Silver",
-      slot: "relic",
-      desc: "+8% gold (passive while kept)",
-      weight: 14,
-      value: 350,
-      effect: { goldMult: 0.08 },
-    },
-    {
-      id: "fisher_hook",
-      region: "wastes",
-      name: "Fisher King's Hook",
-      slot: "relic",
-      desc: "+7% XP and +5% gold (passive)",
-      weight: 8,
-      value: 700,
-      effect: { xpMult: 0.07, goldMult: 0.05 },
-    },
-    // Boss uniques (weight 0 = never from random rolls)
-    {
-      id: "green_girdle",
-      name: "Green Girdle",
-      slot: "relic",
-      desc: "Boss unique: +15 defense, +5% XP (passive)",
-      weight: 0,
-      value: 1000,
-      unique: true,
-      effect: { defense: 15, xpMult: 0.05 },
-    },
-    {
-      id: "clarent",
-      name: "Clarent",
-      slot: "weapon",
-      desc: "Boss unique: +85 fight power, +15 defense",
-      weight: 0,
-      value: 3000,
-      unique: true,
-      effect: { attack: 85, defense: 15 },
-    },
-    {
-      id: "pellinore_mail",
-      name: "Pellinore's Hunting Mail",
-      slot: "armor",
-      desc: "Boss unique: +25% gold; +60 defense, +20 fight power",
-      weight: 0,
-      value: 5000,
-      unique: true,
-      effect: { goldMult: 0.25, defense: 60, attack: 20 },
-    },
-  ];
-
-  /**
-   * Collections — one set per region. Pieces drop from quests in that region (~15%),
-   * fight wins (~10%, any unlocked region) and are guaranteed from bosses.
-   * Redeem once (consumes one of each piece) for a permanent bonus.
-   */
-  const COLLECTIONS = [
-    {
-      id: "round_table",
-      region: "camelot",
-      name: "Arms of the Round Table",
-      bonusDesc: "+10 attack, +10 defense",
-      bonus: { attack: 10, defense: 10 },
-      pieces: [
-        { id: "rt_shard", name: "Round Table Splinter", weight: 30 },
-        { id: "rt_key", name: "Kay's Seneschal Key", weight: 25 },
-        { id: "rt_gauntlet", name: "Bedivere's Gauntlet", weight: 20 },
-        { id: "rt_pentangle", name: "Gawain's Pentangle Boss", weight: 15 },
-        { id: "rt_signet", name: "Arthur's Signet Ring", weight: 10 },
-      ],
-    },
-    {
-      id: "grail",
-      region: "avalon",
-      name: "Relics of the Grail",
-      bonusDesc: "+10 max Energy, +5 max Stamina",
-      bonus: { energyMax: 10, staminaMax: 5 },
-      pieces: [
-        { id: "gr_veil", name: "Lady's Veil", weight: 30 },
-        { id: "gr_apple", name: "Golden Apple of Avalon", weight: 25 },
-        { id: "gr_paten", name: "Silver Paten", weight: 20 },
-        { id: "gr_lance", name: "Tip of the Bleeding Lance", weight: 15 },
-        { id: "gr_light", name: "Grail's Light", weight: 10 },
-      ],
-    },
-    {
-      id: "pendragon",
-      region: "wastes",
-      name: "Regalia of Pendragon",
-      bonusDesc: "+10% gold, +10% XP",
-      bonus: { goldMult: 0.1, xpMult: 0.1 },
-      pieces: [
-        { id: "pd_banner", name: "Red Dragon Banner", weight: 30 },
-        { id: "pd_arrow", name: "Camlann Arrowhead", weight: 25 },
-        { id: "pd_torque", name: "Uther's Torque", weight: 20 },
-        { id: "pd_staff", name: "Merlin's Hazel Staff", weight: 15 },
-        { id: "pd_crown", name: "Crown of Logres", weight: 10 },
-      ],
-    },
-  ];
-
-  /**
-   * Bosses — shared HP pool whittled by Stamina strikes; HP persists and slowly regenerates.
-   * After a kill the boss returns after respawnMs at full HP.
-   */
-  const BOSSES = [
-    {
-      id: "green_knight",
-      name: "The Green Knight",
-      desc: "A giant in green who offers the beheading game. He regrows — slowly.",
-      minLevel: 12,
-      maxHp: 2400,
-      stamina: 5,
-      regenPerMin: 30,
-      respawnMs: 30 * 60 * 1000,
-      respawnLabel: "a year and a day (30m)",
-      dmgMin: 6,
-      dmgMax: 14,
-      strikeGold: 15,
-      strikeXp: 10,
-      gold: 2500,
-      xp: 1000,
-      lootId: "green_girdle",
-      collectionId: "round_table",
-    },
-    {
-      id: "mordred",
-      name: "Mordred",
-      desc: "The traitor prince holds Camlann with Clarent in hand. End the long night.",
-      minLevel: 25,
-      maxHp: 10000,
-      stamina: 8,
-      regenPerMin: 45,
-      respawnMs: 60 * 60 * 1000,
-      respawnLabel: "60m",
-      dmgMin: 12,
-      dmgMax: 26,
-      strikeGold: 40,
-      strikeXp: 25,
-      gold: 8000,
-      xp: 3000,
-      lootId: "clarent",
-      collectionId: "pendragon",
-    },
-    {
-      id: "questing_beast",
-      name: "The Questing Beast",
-      desc: "Serpent's head, leopard's body, the baying of thirty hounds in its belly. King Pellinore never caught it.",
-      minLevel: 30,
-      maxHp: 14000,
-      stamina: 10,
-      regenPerMin: 40,
-      respawnMs: 90 * 60 * 1000,
-      respawnLabel: "90m",
-      dmgMin: 18,
-      dmgMax: 34,
-      strikeGold: 80,
-      strikeXp: 50,
-      gold: 20000,
-      xp: 6000,
-      lootId: "pellinore_mail",
-      collectionId: "grail",
-    },
-  ];
-
-  /** Named knights — special recruits (count toward band size, not the hire cap) */
-  const NAMED_KNIGHTS = [
-    {
-      id: "gawain",
-      name: "Sir Gawain",
-      desc: "Nephew of the king, strongest at noon. +25% damage to the Green Knight.",
-      minLevel: 8,
-      cost: 1500,
-      attack: 10,
-      defense: 5,
-      bossDmg: { green_knight: 0.25 },
-    },
-    {
-      id: "percival",
-      name: "Sir Percival",
-      desc: "The innocent who found the Grail castle. +5% XP from everything.",
-      minLevel: 15,
-      cost: 4000,
-      attack: 8,
-      defense: 8,
-      xpMult: 0.05,
-    },
-    {
-      id: "lancelot",
-      name: "Sir Lancelot",
-      desc: "Greatest lance of the Round Table. +10% damage to every boss.",
-      minLevel: 22,
-      cost: 9000,
-      attack: 20,
-      defense: 10,
-      bossDmgAll: 0.1,
-    },
-  ];
+  const F = window.RuinWarsFormulas;
+  const {
+    REGIONS,
+    QUESTS,
+    STORY_BEATS,
+    BOSS_LEGENDS,
+    MASTERY_BONUSES,
+    FOES,
+    HEALS,
+    UPGRADES,
+    RANKED_UPGRADES,
+    HOLDINGS,
+    LOOT,
+    COLLECTIONS,
+    BOSSES,
+    NAMED_KNIGHTS,
+  } = window.RuinWarsContent;
+  const xpForLevel = F.xpForLevel;
+  const formatCooldown = F.formatCooldown;
+  const upsetMultiplier = F.upsetMultiplier;
+  const msUntilFull = F.msUntilFull;
 
   function defaultState() {
     return {
@@ -1434,7 +335,7 @@
   }
 
   function bandCap() {
-    return Math.min(BAND_CAP_MAX, BAND_CAP_BASE + state.level);
+    return F.bandCap(state.level);
   }
 
   function namedKnightsOwned() {
@@ -1449,7 +350,7 @@
   }
 
   function hireCost() {
-    return BAND_HIRE_BASE + bandState().recruits * BAND_HIRE_STEP;
+    return F.hireCost(bandState().recruits);
   }
 
   function rallyRemaining() {
@@ -1533,9 +434,7 @@
 
   /** Gold for the next rank of a ranked upgrade (null when maxed). */
   function rankedUpgradeCost(def) {
-    const rank = upgradeRank(def.id);
-    if (rank >= def.maxRank) return null;
-    return Math.round((def.baseCost * Math.pow(def.growth, rank)) / 5) * 5;
+    return F.rankedUpgradeCost(def, upgradeRank(def.id));
   }
 
   function renownRank() {
@@ -1600,21 +499,12 @@
   }
 
   function soakDamage(dmg) {
-    const def = defenseRating();
-    return Math.max(1, Math.round(dmg * (1 - def / (def + DEFENSE_SOAK))));
+    return F.soakDamage(dmg, defenseRating());
   }
 
-  /** Chance to win a bout in The Lists: 50% at even power, rising / falling steeply with the ratio. */
+  /** Chance to win a bout in The Lists against this foe. */
   function fightWinChance(foe) {
-    const atk = Math.max(1, attackRating());
-    const a = Math.pow(atk, FIGHT_ODDS_EXPONENT);
-    const f = Math.pow(foe.power, FIGHT_ODDS_EXPONENT);
-    return Math.min(FIGHT_ODDS_MAX, Math.max(FIGHT_ODDS_MIN, a / (a + f)));
-  }
-
-  /** Reward multiplier for winning as the underdog (1 when odds were 50% or better). */
-  function upsetMultiplier(odds) {
-    return 1 + UPSET_BONUS * Math.max(0, 0.5 - odds);
+    return F.fightWinChance(attackRating(), foe.power);
   }
 
   // --- Quest requirements ---
@@ -1813,8 +703,9 @@
   }
 
   function load() {
+    let raw = null;
     try {
-      let raw = localStorage.getItem(SAVE_KEY);
+      raw = localStorage.getItem(SAVE_KEY);
       let migratedFrom = null;
       if (!raw) {
         // v0.3 and earlier saved under the legacy key — migrate (legacy copy is left untouched)
@@ -1828,7 +719,19 @@
       if (!data || typeof data !== "object") return;
       applySaveData(data, migratedFrom);
     } catch (e) {
+      // Starting fresh would overwrite the unreadable save on the next save(), so keep a copy first.
+      console.error("Ruin Wars: the save could not be loaded; a copy was kept under " + UNREADABLE_SAVE_KEY, e);
+      try {
+        if (raw) localStorage.setItem(UNREADABLE_SAVE_KEY, raw);
+      } catch (e2) {
+        // storage unavailable: nothing more we can do
+      }
       state = defaultState();
+      logLines = [];
+      addLog(
+        "Your save could not be read, so a new knight takes up the quest. The old save was kept; " +
+          "ask for help recovering it (key " + UNREADABLE_SAVE_KEY + ")."
+      );
     }
   }
 
@@ -2091,7 +994,7 @@
 
     state.energy -= quest.energy;
     if (!state.questCooldownUntil) state.questCooldownUntil = {};
-    state.questCooldownUntil[quest.id] = Date.now() + cooldownMsFor(quest);
+    state.questCooldownUntil[quest.id] = Date.now() + F.questCooldownMs(quest);
 
     if (!state.questCounts) state.questCounts = {};
     state.questCounts[quest.id] = (state.questCounts[quest.id] || 0) + 1;
@@ -2782,31 +1685,6 @@
 
   // --- Save backup (export / import as a text code) ---
 
-  const BACKUP_PREFIX = "RW1.";
-
-  function encodeBackup() {
-    const bytes = new TextEncoder().encode(JSON.stringify(savePayload()));
-    let bin = "";
-    for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
-    return BACKUP_PREFIX + btoa(bin);
-  }
-
-  /** Accepts a backup code (RW1.…) or raw save JSON. Returns the save object, or null if it isn't one. */
-  function decodeBackup(text) {
-    const trimmed = String(text || "").trim();
-    let json = trimmed;
-    if (trimmed.indexOf(BACKUP_PREFIX) === 0) {
-      const bin = atob(trimmed.slice(BACKUP_PREFIX.length).replace(/\s+/g, ""));
-      const bytes = new Uint8Array(bin.length);
-      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-      json = new TextDecoder().decode(bytes);
-    }
-    const data = JSON.parse(json);
-    if (!data || typeof data !== "object" || Array.isArray(data)) return null;
-    if (typeof data.level !== "number" || typeof data.gold !== "number") return null;
-    return data;
-  }
-
   function setBackupStatus(msg, isError) {
     el.backupStatus.textContent = msg;
     el.backupStatus.classList.toggle("error", !!isError);
@@ -2823,7 +1701,7 @@
   }
 
   function copyBackup() {
-    const code = encodeBackup();
+    const code = F.encodeBackup(savePayload());
     el.backupText.value = code;
     function selectFallback() {
       el.backupText.focus();
@@ -2842,13 +1720,13 @@
   function loadBackup() {
     let data = null;
     try {
-      data = decodeBackup(el.backupText.value);
+      data = F.decodeBackup(el.backupText.value);
     } catch (e) {
       data = null;
     }
     if (!data) {
       setBackupStatus(
-        "That isn't a Ruin Wars save. Paste the whole code, starting with " + BACKUP_PREFIX,
+        "That isn't a Ruin Wars save. Paste the whole code, starting with " + F.BACKUP_PREFIX,
         true
       );
       el.backupText.focus();
@@ -3380,12 +2258,6 @@
     }, 2200);
   }
 
-  /** Milliseconds until a regenerating resource is full (0 when full). */
-  function msUntilFull(cur, max, intervalMs, accMs) {
-    if (cur >= max) return 0;
-    return Math.max(0, (max - cur) * intervalMs - (accMs || 0));
-  }
-
   function regenHintText(cur, max, intervalMs, accMs) {
     const left = msUntilFull(cur, max, intervalMs, accMs);
     if (left <= 0) return "Full";
@@ -3584,7 +2456,7 @@
         " (" +
         blade.cost +
         " gold in the Armory) adds +" +
-        BLADE_ATTACK_BONUS +
+        blade.effect.attackBonus +
         " attack and +35% gold. Buy it before your first bouts.";
       const go = document.createElement("button");
       go.type = "button";

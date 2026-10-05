@@ -1,0 +1,135 @@
+/**
+ * Ruin Wars — pure formulas (no DOM, no game state).
+ * Loaded in the browser as window.RuinWarsFormulas, and in Node via require() for tests.
+ */
+
+(function (root, factory) {
+  const api = factory();
+  if (typeof module === "object" && module.exports) module.exports = api;
+  else root.RuinWarsFormulas = api;
+})(typeof self !== "undefined" ? self : this, function () {
+  "use strict";
+
+  const FIGHT_ODDS_EXPONENT = 4; // win chance = atk^k / (atk^k + foe^k): 50% at even, ~67% at +20%
+  const FIGHT_ODDS_MIN = 0.05;
+  const FIGHT_ODDS_MAX = 0.95;
+  const UPSET_BONUS = 2; // reward × (1 + UPSET_BONUS × (0.5 − odds)) when winning with odds below 50%
+  const DEFENSE_SOAK = 150; // damage taken × (1 - def / (def + DEFENSE_SOAK))
+  const BAND_CAP_BASE = 2; // hired cap = BASE + level (max BAND_CAP_MAX)
+  const BAND_CAP_MAX = 60;
+  const BAND_HIRE_BASE = 30; // gold for the first hire; +BAND_HIRE_STEP per recruit already in the band
+  const BAND_HIRE_STEP = 20;
+  const BACKUP_PREFIX = "RW1.";
+
+  /** XP needed to go from `level` to level+1 — kept gentle early */
+  function xpForLevel(level) {
+    return Math.floor(35 + level * 22 + Math.pow(level, 1.15) * 6);
+  }
+
+  /**
+   * Quest cooldown: mild on early jobs, long on big ones (A+B pacing).
+   * Energy/Stamina regen is also slow — MW-style resource wait + job rests.
+   */
+  function questCooldownMs(quest) {
+    if (quest.cooldownMs) return quest.cooldownMs; // explicit rests on Avalon / Wastes jobs
+    const e = quest.energy;
+    if (e <= 5) {
+      return 6000 + e * 2000; // ~12–16s early jobs
+    }
+    if (e <= 10) {
+      return 45000 + (e - 5) * 8000; // ~45–85s mid
+    }
+    return 120000 + (e - 10) * 18000; // ~2–3.5 min late jobs
+  }
+
+  function formatCooldown(ms) {
+    const s = Math.ceil(ms / 1000);
+    if (s < 60) return s + "s";
+    const m = Math.floor(s / 60);
+    const r = s % 60;
+    return m + "m " + r + "s";
+  }
+
+  /** Damage left after defense: never below 1. */
+  function soakDamage(dmg, defense) {
+    return Math.max(1, Math.round(dmg * (1 - defense / (defense + DEFENSE_SOAK))));
+  }
+
+  /** Chance to win a bout in The Lists: 50% at even power, rising / falling steeply with the ratio. */
+  function fightWinChance(attack, foePower) {
+    const a = Math.pow(Math.max(1, attack), FIGHT_ODDS_EXPONENT);
+    const f = Math.pow(foePower, FIGHT_ODDS_EXPONENT);
+    return Math.min(FIGHT_ODDS_MAX, Math.max(FIGHT_ODDS_MIN, a / (a + f)));
+  }
+
+  /** Reward multiplier for winning as the underdog (1 when odds were 50% or better). */
+  function upsetMultiplier(odds) {
+    return 1 + UPSET_BONUS * Math.max(0, 0.5 - odds);
+  }
+
+  /** Gold for the next rank of a ranked upgrade (null when maxed). */
+  function rankedUpgradeCost(def, rank) {
+    if (rank >= def.maxRank) return null;
+    return Math.round((def.baseCost * Math.pow(def.growth, rank)) / 5) * 5;
+  }
+
+  /** How many sworn knights a knight of this level can lead. */
+  function bandCap(level) {
+    return Math.min(BAND_CAP_MAX, BAND_CAP_BASE + level);
+  }
+
+  function hireCost(recruits) {
+    return BAND_HIRE_BASE + recruits * BAND_HIRE_STEP;
+  }
+
+  /** Milliseconds until a regenerating resource is full (0 when full). */
+  function msUntilFull(cur, max, intervalMs, accMs) {
+    if (cur >= max) return 0;
+    return Math.max(0, (max - cur) * intervalMs - (accMs || 0));
+  }
+
+  /** A save object as a one-line backup code: RW1. + base64 of the UTF-8 JSON. */
+  function encodeBackup(payload) {
+    const bytes = new TextEncoder().encode(JSON.stringify(payload));
+    let bin = "";
+    for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+    return BACKUP_PREFIX + btoa(bin);
+  }
+
+  /**
+   * Accepts a backup code (RW1.…) or raw save JSON. Returns the save object, or null if it isn't one.
+   * Throws on text that isn't valid base64 / JSON.
+   */
+  function decodeBackup(text) {
+    const trimmed = String(text || "").trim();
+    let json = trimmed;
+    if (trimmed.indexOf(BACKUP_PREFIX) === 0) {
+      const bin = atob(trimmed.slice(BACKUP_PREFIX.length).replace(/\s+/g, ""));
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      json = new TextDecoder().decode(bytes);
+    }
+    const data = JSON.parse(json);
+    if (!data || typeof data !== "object" || Array.isArray(data)) return null;
+    if (typeof data.level !== "number" || typeof data.gold !== "number") return null;
+    return data;
+  }
+
+  return {
+    FIGHT_ODDS_MIN: FIGHT_ODDS_MIN,
+    FIGHT_ODDS_MAX: FIGHT_ODDS_MAX,
+    BACKUP_PREFIX: BACKUP_PREFIX,
+    xpForLevel: xpForLevel,
+    questCooldownMs: questCooldownMs,
+    formatCooldown: formatCooldown,
+    soakDamage: soakDamage,
+    fightWinChance: fightWinChance,
+    upsetMultiplier: upsetMultiplier,
+    rankedUpgradeCost: rankedUpgradeCost,
+    bandCap: bandCap,
+    hireCost: hireCost,
+    msUntilFull: msUntilFull,
+    encodeBackup: encodeBackup,
+    decodeBackup: decodeBackup,
+  };
+});

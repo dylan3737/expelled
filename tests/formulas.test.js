@@ -1,0 +1,103 @@
+"use strict";
+
+const test = require("node:test");
+const assert = require("node:assert/strict");
+const F = require("../formulas.js");
+
+test("xpForLevel grows with every level", () => {
+  assert.equal(F.xpForLevel(1), 63);
+  for (let lv = 1; lv < 80; lv++) {
+    assert.ok(F.xpForLevel(lv + 1) > F.xpForLevel(lv), "level " + lv);
+  }
+});
+
+test("questCooldownMs: explicit rests win, otherwise tiers by energy", () => {
+  assert.equal(F.questCooldownMs({ energy: 20, cooldownMs: 150000 }), 150000);
+  assert.equal(F.questCooldownMs({ energy: 3 }), 12000);
+  assert.equal(F.questCooldownMs({ energy: 5 }), 16000);
+  assert.equal(F.questCooldownMs({ energy: 7 }), 61000);
+  assert.equal(F.questCooldownMs({ energy: 15 }), 210000);
+});
+
+test("formatCooldown", () => {
+  assert.equal(F.formatCooldown(0), "0s");
+  assert.equal(F.formatCooldown(59001), "1m 0s");
+  assert.equal(F.formatCooldown(125000), "2m 5s");
+});
+
+test("fightWinChance is 50% at even power and moves with the ratio", () => {
+  assert.equal(F.fightWinChance(100, 100), 0.5);
+  assert.ok(Math.abs(F.fightWinChance(120, 100) - 0.6747) < 0.001);
+  assert.ok(Math.abs(F.fightWinChance(80, 100) - 0.2906) < 0.001);
+  let prev = 0;
+  for (let atk = 10; atk <= 400; atk += 10) {
+    const p = F.fightWinChance(atk, 150);
+    assert.ok(p >= prev, "monotonic at " + atk);
+    prev = p;
+  }
+});
+
+test("fightWinChance is clamped and safe at zero attack", () => {
+  assert.equal(F.fightWinChance(1, 1000), F.FIGHT_ODDS_MIN);
+  assert.equal(F.fightWinChance(0, 18), F.FIGHT_ODDS_MIN);
+  assert.equal(F.fightWinChance(1000, 1), F.FIGHT_ODDS_MAX);
+});
+
+test("upsetMultiplier only rewards underdog wins", () => {
+  assert.equal(F.upsetMultiplier(0.5), 1);
+  assert.equal(F.upsetMultiplier(0.9), 1);
+  assert.ok(Math.abs(F.upsetMultiplier(0.05) - 1.9) < 1e-9);
+  assert.ok(Math.abs(F.upsetMultiplier(0.25) - 1.5) < 1e-9);
+});
+
+test("soakDamage reduces damage but never below 1", () => {
+  assert.equal(F.soakDamage(30, 0), 30);
+  assert.equal(F.soakDamage(30, 150), 15);
+  assert.equal(F.soakDamage(1, 10000), 1);
+  assert.ok(F.soakDamage(40, 300) < F.soakDamage(40, 100));
+});
+
+test("rankedUpgradeCost: base at rank 0, rounded to 5, null when maxed", () => {
+  const def = { baseCost: 150, growth: 1.35, maxRank: 20 };
+  assert.equal(F.rankedUpgradeCost(def, 0), 150);
+  assert.equal(F.rankedUpgradeCost(def, 1), 205);
+  for (let r = 0; r < def.maxRank; r++) {
+    const c = F.rankedUpgradeCost(def, r);
+    assert.equal(c % 5, 0);
+    if (r > 0) assert.ok(c > F.rankedUpgradeCost(def, r - 1));
+  }
+  assert.equal(F.rankedUpgradeCost(def, 20), null);
+});
+
+test("bandCap and hireCost", () => {
+  assert.equal(F.bandCap(1), 3);
+  assert.equal(F.bandCap(30), 32);
+  assert.equal(F.bandCap(500), 60);
+  assert.equal(F.hireCost(0), 30);
+  assert.equal(F.hireCost(10), 230);
+});
+
+test("msUntilFull", () => {
+  assert.equal(F.msUntilFull(25, 25, 12000, 0), 0);
+  assert.equal(F.msUntilFull(30, 25, 12000, 0), 0);
+  assert.equal(F.msUntilFull(22, 25, 12000, 0), 36000);
+  assert.equal(F.msUntilFull(24, 25, 12000, 5000), 7000);
+});
+
+test("backup codes round-trip, including non-ASCII names", () => {
+  const save = { name: "Sir Gawain ⚔ Ælfric", level: 12, gold: 3456, inventory: { clarent: 1 }, log: ["ok"] };
+  const code = F.encodeBackup(save);
+  assert.ok(code.startsWith(F.BACKUP_PREFIX));
+  assert.ok(!/\s/.test(code), "single line");
+  assert.deepEqual(F.decodeBackup(code), save);
+  assert.deepEqual(F.decodeBackup("  " + code.slice(0, 20) + "\n" + code.slice(20) + "  "), save);
+});
+
+test("decodeBackup accepts raw JSON and rejects things that aren't saves", () => {
+  assert.deepEqual(F.decodeBackup('{"level":3,"gold":10}'), { level: 3, gold: 10 });
+  assert.equal(F.decodeBackup('{"gold":10}'), null);
+  assert.equal(F.decodeBackup("[1,2]"), null);
+  assert.equal(F.decodeBackup("null"), null);
+  assert.throws(() => F.decodeBackup("garbage"));
+  assert.throws(() => F.decodeBackup(F.BACKUP_PREFIX + "%%%"));
+});

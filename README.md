@@ -163,24 +163,41 @@ start index.html         # Windows
 npx --yes serve .
 ```
 
-## Where the main loop lives
+## Tests
+
+Plain Node, no dependencies (Node 18+):
+
+```bash
+npm test        # runs node --test over tests/*.test.js
+```
+
+- `tests/formulas.test.js` — XP curve, quest cooldowns, fight odds and upset bonus, defense soak, training costs, band cap / hire cost, time-until-full, backup code round-trips.
+- `tests/content.test.js` — sanity checks on `content.js`: unique ids, quests in real regions with a story beat at every mastery rank, band requirements reachable at each quest's level, 3 weapons / 3 armors / 3 relics per region, every boss drops a real unique and collection piece and has a legend, named-knight boss bonuses point at real bosses.
+
+Run them after any balance edit in `content.js`.
+
+## Code layout
 
 | File | Role |
 |------|------|
-| `index.html` | Layout: header (rename / backup / reset dialogs), stats (incl. band), tab bar + ticker, then one tagged `data-panel` section per tab: quests + region tabs, Lists + Chapel, bosses, knight band, holdings, inventory, collections, shop, chronicle + legends |
+| `index.html` | Layout: header (rename / backup / reset dialogs), stats (incl. band), tab bar + ticker, then one tagged `data-panel` section per tab: quests + region tabs, Lists + Chapel, bosses, knight band, holdings, inventory, collections, shop, renown, chronicle + legends. Loads `formulas.js`, `content.js`, then `game.js`. |
 | `styles.css` | Dark parchment / stone theme |
-| `game.js` | All game logic — regions/quests/mastery/story, fights, bosses, band, holdings, loot, collections, shop, regen, save/load |
+| `content.js` | **Content tables** (pure data, tune balance here): `REGIONS` / `QUESTS` / `STORY_BEATS` / `BOSS_LEGENDS` / `MASTERY_BONUSES` / `FOES` / `HEALS` / `UPGRADES` / `RANKED_UPGRADES` / `HOLDINGS` / `LOOT` / `COLLECTIONS` / `BOSSES` / `NAMED_KNIGHTS`. Exposed as `window.RuinWarsContent`. |
+| `formulas.js` | **Pure formulas** with no DOM or game state: `xpForLevel`, `questCooldownMs`, `fightWinChance(attack, power)`, `upsetMultiplier`, `soakDamage(dmg, defense)`, `rankedUpgradeCost(def, rank)`, `bandCap(level)`, `hireCost(recruits)`, `msUntilFull`, `encodeBackup` / `decodeBackup`. Exposed as `window.RuinWarsFormulas`. |
+| `game.js` | Game rules, state, save/load and rendering, built on the two files above |
+| `tests/` | `node --test` suites for the formulas and content (see Tests) |
+
+Both `content.js` and `formulas.js` are plain scripts that also work with `require()`, which is how the tests load them.
 
 In `game.js`:
-
-- **`REGIONS` / `QUESTS` / `FOES` / `BOSSES` / `NAMED_KNIGHTS` / `HEALS` / `UPGRADES` / `RANKED_UPGRADES` / `HOLDINGS` / `LOOT` / `COLLECTIONS` / `STORY_BEATS` / `BOSS_LEGENDS`** — content tables
 - **`doQuest` / `doFight` / `doBossStrike` / `hireRecruit` / `rallyRecruit` / `recruitNamed` / `redeemCollection` / `setRegion` / `doHeal` / `buyUpgrade` / `buyRankedUpgrade` / `buyHolding` / `collectHolding` / `equipItem` / `sellItem` / `sellSpares`** — core actions
 - **Fight formula** — `fightWinChance(foe)` = `atk⁴ / (atk⁴ + power⁴)` clamped 5–95%, upset bonus via `upsetMultiplier`; losses/chip damage soaked by `defenseRating()`
 - **Quest requirements** — `questRequirements(quest)` / `unmetRequirements(quest)` read a quest's optional `requires: { band, weapon, armor }`
 - **`tick`** — energy, stamina, health regen + holding accrual + boss regen/respawn every second, then `renderLive()`
 - **Rendering** — render functions build detached nodes and `patchChildren()` morphs them into the page (keyed by `data-key`), so unchanged buttons keep their identity across ticks (no dropped clicks / hover flicker). Buttons use `data-action` / `data-id` with one delegated click listener (`ACTIONS`).
 - **Tabs / feedback** — `setTab` / `tabAlerts` / `renderTicker`; `onActionClick` snapshots gold / XP / level / health before each action and `showActionFeedback` floats the difference
-- **Backup** — `encodeBackup` / `decodeBackup`; `load()` and backup import both go through `applySaveData(data)`
+- **Backup** — `F.encodeBackup(savePayload())` / `F.decodeBackup(text)`; `load()` and backup import both go through `applySaveData(data)`
+- **Renown** — `beginNewLegend` keeps `name`, `renown`, `storyUnlocks`; `renownBonuses()` feeds `goldMultiplier` / `xpMultiplier`
 - **`save` / `load`** — `localStorage` key `ruin_wars_save_v4` (`saveVersion: 6`); falls back to legacy `ruin_wars_save_v1` and migrates. Saves happen immediately after actions, at most every ~8s from the tick when something changed, and on `visibilitychange` (hidden) / `pagehide` / `beforeunload`. The last 50 chronicle lines are saved under `log` (optional; older saves load fine without it).
 - **`window.RuinWars`** — DevTools helpers
 

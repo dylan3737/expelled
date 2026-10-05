@@ -1,0 +1,11 @@
+{
+  "name": "ruin-wars",
+  "private": true,
+  "description": "Arthurian clicker in the spirit of Mafia Wars — static HTML/CSS/JS, no build step.",
+  "scripts": {
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
