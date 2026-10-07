@@ -21,7 +21,7 @@ function assertUniqueIds(list, label) {
 }
 
 test("ids are unique within every table", () => {
-  for (const key of ["REGIONS", "QUESTS", "FOES", "HEALS", "UPGRADES", "RANKED_UPGRADES", "HOLDINGS", "LOOT", "COLLECTIONS", "BOSSES", "NAMED_KNIGHTS"]) {
+  for (const key of ["REGIONS", "QUESTS", "FOES", "HEALS", "UPGRADES", "RANKED_UPGRADES", "HOLDINGS", "LOOT", "COLLECTIONS", "BOSSES", "NAMED_KNIGHTS", "ACHIEVEMENTS"]) {
     assertUniqueIds(C[key], key);
   }
   assertUniqueIds(C.COLLECTIONS.flatMap((c) => c.pieces), "collection pieces");
@@ -128,5 +128,33 @@ test("named knights' boss bonuses point at real bosses", () => {
 test("holdings belong to known regions", () => {
   C.HOLDINGS.forEach((h) => {
     if (h.region) assert.ok(regionIds.includes(h.region), h.id + ": unknown region " + h.region);
+  });
+});
+
+test("achievements use known checks with sensible targets", () => {
+  const types = ["questsDone", "questsMastered", "level", "fightWins", "upsets", "bossKill", "band", "namedKnights", "holdings", "collections", "trainingRanks", "renown", "dailyStreak"];
+  const allowAll = ["questsMastered", "namedKnights", "holdings", "collections"];
+  C.ACHIEVEMENTS.forEach((a) => {
+    assert.ok(a.name && a.desc, a.id + ": needs a name and description");
+    assert.ok(types.includes(a.check.type), a.id + ": unknown check " + a.check.type);
+    assert.ok(a.gold >= 0, a.id + ": gold reward");
+    const t = a.check.target;
+    if (a.check.type === "bossKill") {
+      assert.ok(C.BOSSES.some((b) => b.id === t), a.id + ": unknown boss " + t);
+    } else if (t === "all") {
+      assert.ok(allowAll.includes(a.check.type), a.id + ": 'all' isn't valid for " + a.check.type);
+    } else {
+      assert.ok(Number.isInteger(t) && t > 0, a.id + ": target must be a positive whole number");
+    }
+  });
+});
+
+test("count-based achievement targets are reachable", () => {
+  const maxLevelQuestMastery = C.QUESTS.length;
+  C.ACHIEVEMENTS.forEach((a) => {
+    const t = a.check.target;
+    if (a.check.type === "questsMastered" && t !== "all") assert.ok(t <= maxLevelQuestMastery, a.id);
+    if (a.check.type === "collections" && t !== "all") assert.ok(t <= C.COLLECTIONS.length, a.id);
+    if (a.check.type === "band") assert.ok(t <= F.bandCap(1000) + C.NAMED_KNIGHTS.length, a.id);
   });
 });

@@ -1,5 +1,5 @@
 /**
- * Ruin Wars — core game loop (v0.8). Content tables live in content.js, pure formulas in formulas.js.
+ * Ruin Wars — core game loop (v0.9). Content tables live in content.js, pure formulas in formulas.js.
  * Quests (Energy) across Regions + mastery/story/requirements, The Lists (Stamina/Health, odds-based
  * bouts), Bosses, Knight Band, Holdings (passive gold), Loot/Inventory (region tiers, equip, sell),
  * Collections, shop upgrades + ranked training.
@@ -12,7 +12,8 @@
   const SAVE_KEY = "ruin_wars_save_v4";
   const LEGACY_SAVE_KEYS = ["ruin_wars_save_v1"];
   const UNREADABLE_SAVE_KEY = "ruin_wars_save_unreadable"; // copy of a save that failed to load
-  const SAVE_VERSION = 6;
+  const UPSET_ACHIEVEMENT_ODDS = 0.3; // "Against the Odds": win a bout with odds below this
+  const SAVE_VERSION = 7;
   const TICK_MS = 1000;
   const BASE_ENERGY_MAX = 25;
   const BASE_STAMINA_MAX = 20;
@@ -83,6 +84,7 @@
     COLLECTIONS,
     BOSSES,
     NAMED_KNIGHTS,
+    ACHIEVEMENTS,
   } = window.RuinWarsContent;
   const xpForLevel = F.xpForLevel;
   const formatCooldown = F.formatCooldown;
@@ -105,6 +107,9 @@
       ownedUpgrades: {},
       upgradeRanks: {},
       renown: 0,
+      achievements: {}, // id -> time earned; kept through Renown
+      stats: { fightWins: 0, upsets: 0 }, // lifetime counters; kept through Renown
+      daily: { lastDay: null, streak: 0 }, // daily tribute; kept through Renown
       questCooldownUntil: {},
       fightCooldownUntil: {},
       questCounts: {},
@@ -763,6 +768,14 @@
     // v0.7 fields
     if (typeof state.renown !== "number" || state.renown < 0) state.renown = 0;
     state.renown = Math.floor(state.renown);
+    // v0.9 fields
+    if (!state.achievements || typeof state.achievements !== "object") state.achievements = {};
+    if (!state.stats || typeof state.stats !== "object") state.stats = {};
+    if (typeof state.stats.fightWins !== "number") state.stats.fightWins = 0;
+    if (typeof state.stats.upsets !== "number") state.stats.upsets = 0;
+    if (!state.daily || typeof state.daily !== "object") state.daily = {};
+    if (typeof state.daily.lastDay !== "string") state.daily.lastDay = null;
+    if (typeof state.daily.streak !== "number") state.daily.streak = 0;
     if (!state.questCounts || typeof state.questCounts !== "object") {
       state.questCounts = {};
     }
@@ -815,10 +828,16 @@
           "selling spare loot, odds-based bouts in The Lists, and band / gear requirements on later quests."
       );
     }
-    if (migratedFrom || oldVersion < SAVE_VERSION) {
+    if (migratedFrom || oldVersion < 6) {
       addLog(
         "Save updated to v0.7 — the Questing Beast waits at Level 30, and knights of Level 30 can " +
           "begin a new legend for Renown (see the Chronicle tab)."
+      );
+    }
+    if (migratedFrom || oldVersion < SAVE_VERSION) {
+      addLog(
+        "Save updated to v0.9 — Achievements (Chronicle tab) and a daily tribute that grows when you " +
+          "return each day."
       );
       save();
     }
@@ -1075,6 +1094,8 @@
 
     if (won) {
       const upset = upsetMultiplier(odds);
+      state.stats.fightWins += 1;
+      if (odds < UPSET_ACHIEVEMENT_ODDS) state.stats.upsets += 1;
       const goldGain = Math.floor(foe.gold * goldMultiplier() * upset);
       const xpGain = Math.floor(foe.xp * xpMultiplier() * upset);
       state.gold += goldGain;
@@ -1743,6 +1764,7 @@
       return;
     }
     addLog("Save loaded from a backup. Welcome back, " + state.name + ".");
+    checkAchievements();
     save();
     render();
     el.backupText.value = "";
@@ -1775,6 +1797,9 @@
       name: state.name,
       renown: renownRank() + 1,
       storyUnlocks: state.storyUnlocks,
+      achievements: state.achievements,
+      stats: state.stats,
+      daily: state.daily,
     };
     const finalLevel = state.level;
     state = Object.assign(defaultState(), kept);
@@ -1951,6 +1976,14 @@
     main: document.querySelector(".main"),
     playerTitle: document.getElementById("player-title"),
     renownBox: document.getElementById("renown-box"),
+    toasts: document.getElementById("toasts"),
+    dailyBar: document.getElementById("daily-bar"),
+    achvList: document.getElementById("achievements-list"),
+    achvSummary: document.getElementById("achievements-summary"),
+    guide: document.getElementById("guide"),
+    btnGuide: document.getElementById("btn-guide"),
+    guideClose: document.getElementById("guide-close"),
+    btnMusic: document.getElementById("btn-music"),
     ticker: document.getElementById("ticker"),
   };
 
@@ -2059,6 +2092,7 @@
     "renown-open": openRenownConfirm,
     "renown-cancel": cancelRenown,
     "renown-confirm": beginNewLegend,
+    daily: claimDaily,
   };
 
   function onActionClick(ev) {
@@ -2069,8 +2103,13 @@
     const action = target.getAttribute("data-action");
     const before = feedbackSnapshot();
     fn(target.getAttribute("data-id"));
+    const earned = checkAchievements();
     showActionFeedback(target, before);
-    playCue(cueForAction(action, before));
+    playCue(earned.length && !(state.level > before.level) ? "achievement" : cueForAction(action, before));
+    if (earned.length) {
+      save();
+      render();
+    }
   }
 
   // --- Sound: short synthesized cues (Web Audio), off by default ---
@@ -2114,7 +2153,7 @@
   }
 
   /** One enveloped note: freq in Hz, start offset and length in seconds. */
-  function tone(ctx, freq, start, length, type, volume, slideTo) {
+  function tone(ctx, freq, start, length, type, volume, slideTo, dest) {
     const t0 = ctx.currentTime + start;
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
@@ -2124,7 +2163,7 @@
     gain.gain.setValueAtTime(0.0001, t0);
     gain.gain.exponentialRampToValueAtTime(volume, t0 + 0.012);
     gain.gain.exponentialRampToValueAtTime(0.0001, t0 + length);
-    osc.connect(gain).connect(ctx.destination);
+    osc.connect(gain).connect(dest || ctx.destination);
     osc.start(t0);
     osc.stop(t0 + length + 0.02);
   }
@@ -2183,6 +2222,11 @@
         tone(ctx, f, i * 0.09, 0.32, "triangle", 0.16);
       });
     },
+    achievement: function (ctx) {
+      tone(ctx, 784, 0, 0.16, "triangle", 0.14);
+      tone(ctx, 1047, 0.1, 0.16, "triangle", 0.14);
+      tone(ctx, 1319, 0.2, 0.45, "triangle", 0.12);
+    },
     boss: function (ctx) {
       clash(ctx, 0, 0.18, 0.4);
       [392, 523, 659, 784].forEach(function (f, i) {
@@ -2199,6 +2243,124 @@
       if (ctx) CUES[name](ctx);
     } catch (e) {
       // audio unavailable: play silently
+    }
+  }
+
+  // --- Music: a slow generated loop (drone chords + sparse harp notes), off by default ---
+
+  const MUSIC_PREF_KEY = "ruin_wars_music"; // per-browser preference, not part of the save
+  const MUSIC_BAR_S = 4.8; // seconds per chord
+  // D dorian: Dm – C – B♭ – C, as [root, fifth, third] in Hz, and the notes the harp may pick.
+  const MUSIC_CHORDS = [
+    [73.42, 110.0, 174.61],
+    [65.41, 98.0, 164.81],
+    [58.27, 87.31, 146.83],
+    [65.41, 98.0, 164.81],
+  ];
+  const MUSIC_HARP = [293.66, 349.23, 392.0, 440.0, 523.25, 587.33, 698.46];
+  let musicOn = false;
+  let musicBus = null;
+  let musicTimer = null;
+  let musicNextBar = 0;
+  let musicBarIndex = 0;
+
+  function readMusicPref() {
+    try {
+      return localStorage.getItem(MUSIC_PREF_KEY) === "on";
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function renderMusicToggle() {
+    el.btnMusic.textContent = musicOn ? "Music: on" : "Music: off";
+    el.btnMusic.setAttribute("aria-pressed", musicOn ? "true" : "false");
+  }
+
+  function toggleMusic() {
+    musicOn = !musicOn;
+    try {
+      localStorage.setItem(MUSIC_PREF_KEY, musicOn ? "on" : "off");
+    } catch (e) {
+      // ignore: the toggle still works for this visit
+    }
+    renderMusicToggle();
+    if (musicOn) startMusic();
+    else stopMusic();
+  }
+
+  /** A soft held note with a slow swell, for the drone. `when` is an absolute context time. */
+  function padNote(ctx, freq, when, length, volume) {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = "triangle";
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(0.0001, when);
+    gain.gain.linearRampToValueAtTime(volume, when + length * 0.35);
+    gain.gain.linearRampToValueAtTime(0.0001, when + length);
+    osc.connect(gain).connect(musicBus);
+    osc.start(when);
+    osc.stop(when + length + 0.05);
+  }
+
+  function scheduleMusicBar(ctx, when) {
+    const chord = MUSIC_CHORDS[musicBarIndex % MUSIC_CHORDS.length];
+    musicBarIndex += 1;
+    chord.forEach(function (f, i) {
+      padNote(ctx, f, when, MUSIC_BAR_S + 0.8, i === 0 ? 0.16 : 0.09);
+    });
+    // Two to four plucked notes per chord, on the beat, never two the same in a row.
+    const beat = MUSIC_BAR_S / 4;
+    let last = -1;
+    for (let b = 0; b < 4; b++) {
+      if (Math.random() < 0.35) continue;
+      let i = Math.floor(Math.random() * MUSIC_HARP.length);
+      if (i === last) i = (i + 2) % MUSIC_HARP.length;
+      last = i;
+      tone(ctx, MUSIC_HARP[i], when - ctx.currentTime + b * beat, 1.6, "sine", 0.07, null, musicBus);
+    }
+  }
+
+  function scheduleMusic() {
+    const ctx = audioCtx;
+    if (!ctx || !musicOn) return;
+    while (musicNextBar < ctx.currentTime + 1.5) {
+      scheduleMusicBar(ctx, musicNextBar);
+      musicNextBar += MUSIC_BAR_S;
+    }
+  }
+
+  function startMusic() {
+    if (!musicOn || document.visibilityState === "hidden") return;
+    let ctx = null;
+    try {
+      ctx = audio();
+    } catch (e) {
+      ctx = null;
+    }
+    if (!ctx) return;
+    if (!musicBus) {
+      musicBus = ctx.createGain();
+      const soften = ctx.createBiquadFilter();
+      soften.type = "lowpass";
+      soften.frequency.value = 2200;
+      musicBus.connect(soften).connect(ctx.destination);
+    }
+    musicBus.gain.cancelScheduledValues(ctx.currentTime);
+    musicBus.gain.setTargetAtTime(0.55, ctx.currentTime, 1.2);
+    musicNextBar = Math.max(musicNextBar, ctx.currentTime + 0.1);
+    if (!musicTimer) musicTimer = setInterval(scheduleMusic, 300);
+    scheduleMusic();
+  }
+
+  function stopMusic() {
+    if (musicTimer) {
+      clearInterval(musicTimer);
+      musicTimer = null;
+    }
+    if (musicBus && audioCtx) {
+      musicBus.gain.cancelScheduledValues(audioCtx.currentTime);
+      musicBus.gain.setTargetAtTime(0.0001, audioCtx.currentTime, 0.3);
     }
   }
 
@@ -2419,14 +2581,227 @@
     el.statsPanel.classList.remove("level-flash");
     void el.statsPanel.offsetWidth; // restart the animation
     el.statsPanel.classList.add("level-flash");
+    showToast("Level " + state.level + "!", "level-toast", 2200);
+  }
+
+  /** Banner at the top of the screen; several stack instead of overlapping. */
+  function showToast(text, className, ms) {
     const toast = document.createElement("div");
-    toast.className = "level-toast";
+    toast.className = className;
     toast.setAttribute("role", "status");
-    toast.textContent = "Level " + state.level + "!";
-    document.body.appendChild(toast);
+    toast.textContent = text;
+    el.toasts.appendChild(toast);
     setTimeout(function () {
       toast.remove();
-    }, 2200);
+    }, ms);
+  }
+
+  // --- Achievements ---
+
+  function totalQuestsDone() {
+    return Object.keys(state.questCounts || {}).reduce(function (sum, id) {
+      return sum + (state.questCounts[id] || 0);
+    }, 0);
+  }
+
+  function ownedHoldingsCount() {
+    return HOLDINGS.filter(function (def) {
+      return !!(state.holdings && state.holdings[def.id] && state.holdings[def.id].owned);
+    }).length;
+  }
+
+  function trainingRanksTotal() {
+    return RANKED_UPGRADES.reduce(function (sum, def) {
+      return sum + upgradeRank(def.id);
+    }, 0);
+  }
+
+  /** { cur, target } for an achievement's check (cur is capped at target). */
+  function achievementProgress(a) {
+    const c = a.check;
+    let cur = 0;
+    let target = c.target;
+    switch (c.type) {
+      case "questsDone":
+        cur = totalQuestsDone();
+        break;
+      case "questsMastered":
+        cur = QUESTS.filter(function (q) {
+          return masteryTier(q.id) >= MASTERY_THRESHOLDS.length;
+        }).length;
+        if (target === "all") target = QUESTS.length;
+        break;
+      case "level":
+        cur = state.level;
+        break;
+      case "fightWins":
+        cur = state.stats.fightWins;
+        break;
+      case "upsets":
+        cur = state.stats.upsets;
+        break;
+      case "bossKill": {
+        const b = state.bosses && state.bosses[c.target];
+        cur = b && b.kills > 0 ? 1 : 0;
+        target = 1;
+        break;
+      }
+      case "band":
+        cur = bandSize();
+        break;
+      case "namedKnights":
+        cur = namedKnightsOwned().length;
+        if (target === "all") target = NAMED_KNIGHTS.length;
+        break;
+      case "holdings":
+        cur = ownedHoldingsCount();
+        if (target === "all") target = HOLDINGS.length;
+        break;
+      case "collections":
+        cur = redeemedCount();
+        if (target === "all") target = COLLECTIONS.length;
+        break;
+      case "trainingRanks":
+        cur = trainingRanksTotal();
+        break;
+      case "renown":
+        cur = renownRank();
+        break;
+      case "dailyStreak":
+        cur = state.daily.streak;
+        break;
+    }
+    return { cur: Math.min(cur, target), target: target };
+  }
+
+  function achievementEarned(id) {
+    return !!(state.achievements && state.achievements[id]);
+  }
+
+  /** Award every achievement whose goal is now met. Returns the newly earned ones. */
+  function checkAchievements() {
+    const earned = [];
+    ACHIEVEMENTS.forEach(function (a) {
+      if (achievementEarned(a.id)) return;
+      const p = achievementProgress(a);
+      if (p.cur < p.target) return;
+      state.achievements[a.id] = Date.now();
+      state.gold += a.gold;
+      earned.push(a);
+    });
+    if (!earned.length) return earned;
+    if (earned.length <= 2) {
+      earned.forEach(function (a) {
+        addLog("Achievement earned: " + a.name + " — " + a.desc + (a.gold ? " +" + a.gold + " gold." : ""));
+        showToast("Achievement: " + a.name, "achv-toast", 3000);
+      });
+    } else {
+      const gold = earned.reduce(function (sum, a) {
+        return sum + a.gold;
+      }, 0);
+      addLog(
+        earned.length +
+          " achievements earned for deeds already done: " +
+          earned
+            .map(function (a) {
+              return a.name;
+            })
+            .join(", ") +
+          ". +" +
+          gold +
+          " gold. See the Chronicle tab."
+      );
+      showToast(earned.length + " achievements earned!", "achv-toast", 3000);
+    }
+    return earned;
+  }
+
+  // --- Daily tribute ---
+
+  function todayKey() {
+    return F.dayKey(new Date());
+  }
+
+  /** The streak a claim today would reach, or null if today's tribute is already claimed. */
+  function dailyAvailable() {
+    return F.dailyStreakIfClaimed(state.daily.lastDay, todayKey(), state.daily.streak);
+  }
+
+  function claimDaily() {
+    const streak = dailyAvailable();
+    if (streak === null) {
+      addLog("You have already received today's tribute. Return tomorrow.");
+      render();
+      return;
+    }
+    const gold = F.dailyGold(state.level, streak);
+    state.gold += gold;
+    state.energy = Math.max(state.energy, state.energyMax);
+    state.daily = { lastDay: todayKey(), streak: streak };
+    addLog(
+      "Daily tribute, day " +
+        streak +
+        ": your tenants send " +
+        gold +
+        " gold, and you ride out rested (Energy full)." +
+        (streak < F.DAILY_STREAK_MAX ? " Return tomorrow for more." : "")
+    );
+    save();
+    render();
+  }
+
+  function renderDaily() {
+    const streak = dailyAvailable();
+    el.dailyBar.hidden = streak === null;
+    if (streak === null) return;
+    const day = Math.min(streak, F.DAILY_STREAK_MAX);
+    const frag = document.createDocumentFragment();
+    const text = document.createElement("p");
+    text.setAttribute("data-key", "daily-text");
+    text.innerHTML =
+      "<strong>Daily tribute</strong> · day " +
+      day +
+      " of " +
+      F.DAILY_STREAK_MAX +
+      ' · <span class="reward-gold">+' +
+      F.dailyGold(state.level, streak) +
+      " gold</span> and full Energy" +
+      (streak === 1 && state.daily.streak > 1 ? " · your streak started over" : "");
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "btn btn-primary";
+    btn.setAttribute("data-key", "daily-claim");
+    btn.textContent = "Claim";
+    actionButton(btn, "daily");
+    frag.appendChild(text);
+    frag.appendChild(btn);
+    patchChildren(el.dailyBar, frag);
+  }
+
+  // --- How to play ---
+
+  const GUIDE_SEEN_KEY = "ruin_wars_guide_seen"; // per-browser, not part of the save
+
+  function guideSeen() {
+    try {
+      return localStorage.getItem(GUIDE_SEEN_KEY) === "1";
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function toggleGuide() {
+    el.guide.hidden = !el.guide.hidden;
+    if (!el.guide.hidden) el.guide.scrollIntoView({ block: "nearest" });
+  }
+
+  function closeGuide() {
+    el.guide.hidden = true;
+    try {
+      localStorage.setItem(GUIDE_SEEN_KEY, "1");
+    } catch (e) {
+      // ignore: it shows again next visit
+    }
   }
 
   function regenHintText(cur, max, intervalMs, accMs) {
@@ -3462,6 +3837,44 @@
     patchChildren(el.renownBox, frag);
   }
 
+  function renderAchievements() {
+    const total = ACHIEVEMENTS.length;
+    const done = ACHIEVEMENTS.filter(function (a) {
+      return achievementEarned(a.id);
+    }).length;
+    el.achvSummary.textContent = done + " of " + total + " earned";
+    const frag = document.createDocumentFragment();
+    ACHIEVEMENTS.forEach(function (a) {
+      const earned = achievementEarned(a.id);
+      const p = achievementProgress(a);
+      const card = document.createElement("article");
+      card.className = "achv" + (earned ? " earned" : "");
+      card.setAttribute("data-key", "achv:" + a.id);
+      card.innerHTML =
+        "<h4>" +
+        escapeHtml(a.name) +
+        "</h4>" +
+        "<p>" +
+        escapeHtml(a.desc) +
+        "</p>" +
+        '<p class="achv-meta">' +
+        (earned
+          ? '<span class="achv-done">Earned</span>'
+          : p.target > 1
+            ? '<span class="achv-bar" aria-hidden="true"><span style="width:' +
+              Math.round((p.cur / p.target) * 100) +
+              '%"></span></span>' +
+              p.cur +
+              " / " +
+              p.target
+            : "Not yet") +
+        (a.gold ? ' · <span class="reward-gold">+' + a.gold + "g</span>" : "") +
+        "</p>";
+      frag.appendChild(card);
+    });
+    patchChildren(el.achvList, frag);
+  }
+
   /** Everything that can change without a player action (timers, regen, accrual). */
   function renderLive() {
     renderStatsOnly();
@@ -3476,6 +3889,7 @@
     renderCollections();
     renderShop();
     renderRenown();
+    renderDaily();
     renderTabAlerts();
   }
 
@@ -3492,6 +3906,8 @@
     renderCollections();
     renderShop();
     renderRenown();
+    renderDaily();
+    renderAchievements();
     renderLog();
     renderLegends();
     renderTabAlerts();
@@ -3516,6 +3932,9 @@
   el.resetCancel.addEventListener("click", closeHeaderDialogs);
   el.btnBackup.addEventListener("click", openBackup);
   el.btnSound.addEventListener("click", toggleSound);
+  el.btnMusic.addEventListener("click", toggleMusic);
+  el.btnGuide.addEventListener("click", toggleGuide);
+  el.guideClose.addEventListener("click", closeGuide);
   el.backupCopy.addEventListener("click", copyBackup);
   el.backupLoad.addEventListener("click", loadBackup);
   el.backupClose.addEventListener("click", closeHeaderDialogs);
@@ -3527,8 +3946,21 @@
   document.addEventListener("click", onActionClick);
   // Tick saves are throttled, so flush whenever the page may go away.
   document.addEventListener("visibilitychange", function () {
-    if (document.visibilityState === "hidden") save();
+    if (document.visibilityState === "hidden") {
+      save();
+      stopMusic();
+    } else if (musicOn) {
+      startMusic();
+    }
   });
+  // Browsers only start audio after the player interacts, so music saved as "on" waits for a first tap.
+  document.addEventListener(
+    "pointerdown",
+    function () {
+      if (musicOn && !musicTimer) startMusic();
+    },
+    { once: true }
+  );
   window.addEventListener("pagehide", save);
   window.addEventListener("beforeunload", save);
 
@@ -3541,8 +3973,22 @@
   setTab(initialTab());
   soundOn = readSoundPref();
   renderSoundToggle();
+  musicOn = readMusicPref();
+  renderMusicToggle();
+  checkAchievements(); // credits deeds done before achievements existed
+  if (!guideSeen() && state.level <= 3) el.guide.hidden = false;
   render();
   setInterval(tick, TICK_MS);
+
+  // Installed / offline play on the hosted site (ignored where service workers aren't allowed).
+  const secure = location.protocol === "https:" || location.hostname === "localhost";
+  if ("serviceWorker" in navigator && secure) {
+    try {
+      navigator.serviceWorker.register("sw.js").catch(function () {});
+    } catch (e) {
+      // not available here
+    }
+  }
 
   window.RuinWars = {
     getState: function () {
@@ -3565,6 +4011,7 @@
     COLLECTIONS: COLLECTIONS,
     BOSSES: BOSSES,
     RENOWN_TITLES: RENOWN_TITLES,
+    ACHIEVEMENTS: ACHIEVEMENTS,
     NAMED_KNIGHTS: NAMED_KNIGHTS,
     SAVE_VERSION: SAVE_VERSION,
     attackRating: attackRating,

@@ -1188,6 +1188,189 @@
     },
   ];
 
+  /**
+   * Achievements: earned once, kept through Renown, each pays its gold when earned.
+   * check.type is read by achievementProgress() in game.js; check.target is a number,
+   * "all" (every quest / named knight / holding / collection), or a boss id for bossKill.
+   */
+  const ACHIEVEMENTS = [
+    {
+      id: "first_steps",
+      name: "First Steps",
+      desc: "Complete your first quest.",
+      check: { type: "questsDone", target: 1 },
+      gold: 50,
+    },
+    {
+      id: "journeyman",
+      name: "Journeyman",
+      desc: "Complete 100 quests.",
+      check: { type: "questsDone", target: 100 },
+      gold: 500,
+    },
+    {
+      id: "errand_of_ages",
+      name: "Errand of Ages",
+      desc: "Complete 1,000 quests.",
+      check: { type: "questsDone", target: 1000 },
+      gold: 5000,
+    },
+    {
+      id: "proven_hand",
+      name: "Proven Hand",
+      desc: "Reach Master rank on a quest.",
+      check: { type: "questsMastered", target: 1 },
+      gold: 300,
+    },
+    {
+      id: "ten_roads",
+      name: "Master of Ten Roads",
+      desc: "Reach Master rank on 10 quests.",
+      check: { type: "questsMastered", target: 10 },
+      gold: 3000,
+    },
+    {
+      id: "master_of_logres",
+      name: "Master of Logres",
+      desc: "Reach Master rank on every quest.",
+      check: { type: "questsMastered", target: "all" },
+      gold: 20000,
+    },
+    {
+      id: "level_10",
+      name: "Across the Mists",
+      desc: "Reach Level 10.",
+      check: { type: "level", target: 10 },
+      gold: 500,
+    },
+    {
+      id: "level_20",
+      name: "Into the Wastes",
+      desc: "Reach Level 20.",
+      check: { type: "level", target: 20 },
+      gold: 2000,
+    },
+    {
+      id: "level_30",
+      name: "Heir to the Hollow Throne",
+      desc: "Reach Level 30.",
+      check: { type: "level", target: 30 },
+      gold: 6000,
+    },
+    {
+      id: "first_bout",
+      name: "First Bout",
+      desc: "Win a bout in The Lists.",
+      check: { type: "fightWins", target: 1 },
+      gold: 50,
+    },
+    {
+      id: "champion",
+      name: "Champion of the Lists",
+      desc: "Win 100 bouts in The Lists.",
+      check: { type: "fightWins", target: 100 },
+      gold: 2000,
+    },
+    {
+      id: "against_the_odds",
+      name: "Against the Odds",
+      desc: "Win a bout with under 30% odds.",
+      check: { type: "upsets", target: 1 },
+      gold: 500,
+    },
+    {
+      id: "green_knight",
+      name: "A Year and a Day",
+      desc: "Slay the Green Knight.",
+      check: { type: "bossKill", target: "green_knight" },
+      gold: 1000,
+    },
+    {
+      id: "mordred",
+      name: "The Last Battle",
+      desc: "Slay Mordred.",
+      check: { type: "bossKill", target: "mordred" },
+      gold: 3000,
+    },
+    {
+      id: "questing_beast",
+      name: "Pellinore's Heir",
+      desc: "Slay the Questing Beast.",
+      check: { type: "bossKill", target: "questing_beast" },
+      gold: 6000,
+    },
+    {
+      id: "band_10",
+      name: "A Band of Ten",
+      desc: "Lead 10 knights.",
+      check: { type: "band", target: 10 },
+      gold: 300,
+    },
+    {
+      id: "band_30",
+      name: "A Small Army",
+      desc: "Lead 30 knights.",
+      check: { type: "band", target: 30 },
+      gold: 3000,
+    },
+    {
+      id: "round_table",
+      name: "Seats at the Table",
+      desc: "Recruit Gawain, Percival and Lancelot.",
+      check: { type: "namedKnights", target: "all" },
+      gold: 5000,
+    },
+    {
+      id: "lord_of_lands",
+      name: "Lord of Lands",
+      desc: "Own every holding.",
+      check: { type: "holdings", target: "all" },
+      gold: 5000,
+    },
+    {
+      id: "keeper_of_relics",
+      name: "Keeper of Relics",
+      desc: "Redeem a collection.",
+      check: { type: "collections", target: 1 },
+      gold: 500,
+    },
+    {
+      id: "treasury",
+      name: "Treasury of Logres",
+      desc: "Redeem all three collections.",
+      check: { type: "collections", target: "all" },
+      gold: 8000,
+    },
+    {
+      id: "drilled",
+      name: "Drilled",
+      desc: "Train 25 ranks in the Armory.",
+      check: { type: "trainingRanks", target: 25 },
+      gold: 2000,
+    },
+    {
+      id: "new_legend",
+      name: "A New Legend",
+      desc: "Earn Renown.",
+      check: { type: "renown", target: 1 },
+      gold: 1000,
+    },
+    {
+      id: "thrice_told",
+      name: "Thrice Told",
+      desc: "Reach Renown 3.",
+      check: { type: "renown", target: 3 },
+      gold: 5000,
+    },
+    {
+      id: "faithful_vassal",
+      name: "Faithful Vassal",
+      desc: "Claim the daily tribute 7 days in a row.",
+      check: { type: "dailyStreak", target: 7 },
+      gold: 1000,
+    },
+  ];
+
   return {
     REGIONS: REGIONS,
     QUESTS: QUESTS,
@@ -1203,5 +1386,6 @@
     COLLECTIONS: COLLECTIONS,
     BOSSES: BOSSES,
     NAMED_KNIGHTS: NAMED_KNIGHTS,
+    ACHIEVEMENTS: ACHIEVEMENTS,
   };
 });

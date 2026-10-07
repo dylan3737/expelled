@@ -2,6 +2,7 @@ name: CI
 
 # Tests run on every push and pull request. Pushes to main that pass are
 # then published to GitHub Pages (Settings → Pages → Source: GitHub Actions).
+# The site is the game files, the app manifest, the service worker and icons.
 
 on:
   push:
@@ -35,7 +36,10 @@ jobs:
       - name: Collect the game files
         run: |
           mkdir _site
-          cp index.html styles.css formulas.js content.js game.js _site/
+          cp index.html styles.css formulas.js content.js game.js manifest.webmanifest sw.js _site/
+          cp -r icons _site/
+          # A new cache name per release, so installed copies pick up the update.
+          sed -i "s/__BUILD__/${GITHUB_SHA::7}/" _site/sw.js
           touch _site/.nojekyll
       - uses: actions/upload-pages-artifact@v3
         with:

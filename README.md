@@ -4,7 +4,7 @@ Arthurian / fantasy clicker starter in the spirit of old Facebook *Mafia Wars*: 
 
 **Play it:** https://dylan3737.github.io/ruin_wars/ (published from `main` by GitHub Actions once Pages is turned on, see [Hosting](#hosting)).
 
-**Current version: v0.8** — seven new foes in The Lists for Avalon and the Wastes, optional sound effects, and tests + deploys on GitHub Actions. v0.7 brought a gentler start and a longer end: a softer first foe plus a Tempered Blade tip, a third boss (**the Questing Beast**), and **Renown** (prestige). v0.6 made it easier to play: tabs instead of one long page, a save backup you can copy and paste, and clearer feedback (floating gains, a level-up flash, time-until-full on Energy / Stamina / Health). v0.5 deepened the economy (ranked training, region-tiered loot you can sell, odds-based bouts, quest requirements); v0.4 added Regions, Bosses, Knight Band and Collections.
+**Current version: v0.9** — a first-visit guide, 25 achievements, a daily tribute, background music, and an installable app that plays offline. v0.8 added seven new foes in The Lists, sound effects, and tests + deploys on GitHub Actions; v0.7 brought a gentler start and a longer end: a softer first foe plus a Tempered Blade tip, a third boss (**the Questing Beast**), and **Renown** (prestige). v0.6 made it easier to play: tabs instead of one long page, a save backup you can copy and paste, and clearer feedback (floating gains, a level-up flash, time-until-full on Energy / Stamina / Health). v0.5 deepened the economy (ranked training, region-tiered loot you can sell, odds-based bouts, quest requirements); v0.4 added Regions, Bosses, Knight Band and Collections.
 
 ## Resources
 
@@ -20,6 +20,25 @@ Arthurian / fantasy clicker starter in the spirit of old Facebook *Mafia Wars*: 
 - Energy regenerates about every **12s**; Stamina about every **18s** (slower, more Mafia Wars–like).
 - Quest cooldowns are **short on early jobs**, **long on late jobs** (up to a few minutes).
 - Fight opponent cooldowns are longer too.
+
+## v0.9
+
+### How to play
+New knights (Level 3 or below) see a five-step guide above the stats until they press **Got it**; **How to play** in the header brings it back. Dismissing it is remembered per browser (`ruin_wars_guide_seen`).
+
+### Achievements
+25 achievements live in `content.js` (`ACHIEVEMENTS`) and show in the Chronicle tab with progress bars. Each pays its gold once, is announced with a banner and a chime, and is kept through Renown. Checks: quests completed, quests at Master rank, level, bouts won, upset wins (odds under 30%), each boss slain, band size, all named knights, all holdings, collections redeemed, training ranks, Renown, and a 7-day tribute streak. Older saves are credited for deeds already done on first load (one summary line).
+
+New lifetime counters in the save: `stats.fightWins`, `stats.upsets`.
+
+### Daily tribute
+Once per calendar day (your local midnight) a bar under the stats offers the tribute: `(50 + 25 × level) × streak day` gold, capped at day 7, plus full Energy. Claiming on consecutive days raises the streak; missing a day starts it over at 1. Stored as `daily: { lastDay, streak }` and kept through Renown. The date logic lives in `formulas.js` (`dayKey`, `daysBetween`, `dailyStreakIfClaimed`, `dailyGold`) and is unit-tested.
+
+### Music
+**Music: off / on** in the header plays a slow generated loop (Web Audio): soft drone chords in D dorian (Dm – C – B♭ – C) with a few harp notes on the beat. Off by default, remembered per browser (`ruin_wars_music`), paused while the tab is hidden. Browsers only allow audio after you interact, so saved-on music starts at your first tap.
+
+### Install and offline play
+On the hosted site the game is a Progressive Web App: `manifest.webmanifest` + `icons/` make it installable (Add to Home Screen on phones, the install button in desktop browsers), and `sw.js` caches the game so it plays offline. The service worker is network-first, so online visits always get the latest release; each deploy stamps the commit into the cache name.
 
 ## v0.8
 
@@ -195,14 +214,14 @@ Plain Node, no dependencies (Node 18+):
 npm test        # runs node --test over tests/*.test.js
 ```
 
-- `tests/formulas.test.js` — XP curve, quest cooldowns, fight odds and upset bonus, defense soak, training costs, band cap / hire cost, time-until-full, backup code round-trips.
-- `tests/content.test.js` — sanity checks on `content.js`: unique ids, quests in real regions with a story beat at every mastery rank, band requirements reachable at each quest's level, 3 weapons / 3 armors / 3 relics per region, every boss drops a real unique and collection piece and has a legend, named-knight boss bonuses point at real bosses.
+- `tests/formulas.test.js` — XP curve, quest cooldowns, fight odds and upset bonus, defense soak, training costs, band cap / hire cost, time-until-full, backup code round-trips, daily tribute dates / streak / gold.
+- `tests/content.test.js` — sanity checks on `content.js`: unique ids, quests in real regions with a story beat at every mastery rank, band requirements reachable at each quest's level, 3 weapons / 3 armors / 3 relics per region, every boss drops a real unique and collection piece and has a legend, named-knight boss bonuses point at real bosses, foes get harder and pay more with level, and achievements use known checks with reachable targets.
 
 Run them after any balance edit in `content.js`. GitHub Actions also runs them on every push and pull request.
 
 ## Hosting
 
-`.github/workflows/ci.yml` runs `npm test` on every push and pull request. When a push to `main` passes, it copies the five game files into a site and deploys it to **GitHub Pages** at https://dylan3737.github.io/ruin_wars/.
+`.github/workflows/ci.yml` runs `npm test` on every push and pull request. When a push to `main` passes, it copies the game files, `manifest.webmanifest`, `sw.js` and `icons/` into a site and deploys it to **GitHub Pages** at https://dylan3737.github.io/ruin_wars/.
 
 One-time setup: in the repo on GitHub, open **Settings → Pages** and set **Source** to **GitHub Actions**. Until then the deploy job fails (the tests still run). Saves live in each browser, so a save from another copy of the game (a local file or the Claude artifact) moves over with **Backup → Copy my save / Load pasted save**.
 
@@ -212,10 +231,12 @@ One-time setup: in the repo on GitHub, open **Settings → Pages** and set **Sou
 |------|------|
 | `index.html` | Layout: header (rename / backup / reset dialogs), stats (incl. band), tab bar + ticker, then one tagged `data-panel` section per tab: quests + region tabs, Lists + Chapel, bosses, knight band, holdings, inventory, collections, shop, renown, chronicle + legends. Loads `formulas.js`, `content.js`, then `game.js`. |
 | `styles.css` | Dark parchment / stone theme |
-| `content.js` | **Content tables** (pure data, tune balance here): `REGIONS` / `QUESTS` / `STORY_BEATS` / `BOSS_LEGENDS` / `MASTERY_BONUSES` / `FOES` / `HEALS` / `UPGRADES` / `RANKED_UPGRADES` / `HOLDINGS` / `LOOT` / `COLLECTIONS` / `BOSSES` / `NAMED_KNIGHTS`. Exposed as `window.RuinWarsContent`. |
+| `content.js` | **Content tables** (pure data, tune balance here): `REGIONS` / `QUESTS` / `STORY_BEATS` / `BOSS_LEGENDS` / `MASTERY_BONUSES` / `FOES` / `HEALS` / `UPGRADES` / `RANKED_UPGRADES` / `HOLDINGS` / `LOOT` / `COLLECTIONS` / `BOSSES` / `NAMED_KNIGHTS` / `ACHIEVEMENTS`. Exposed as `window.RuinWarsContent`. |
 | `formulas.js` | **Pure formulas** with no DOM or game state: `xpForLevel`, `questCooldownMs`, `fightWinChance(attack, power)`, `upsetMultiplier`, `soakDamage(dmg, defense)`, `rankedUpgradeCost(def, rank)`, `bandCap(level)`, `hireCost(recruits)`, `msUntilFull`, `encodeBackup` / `decodeBackup`. Exposed as `window.RuinWarsFormulas`. |
 | `game.js` | Game rules, state, save/load and rendering, built on the two files above |
 | `tests/` | `node --test` suites for the formulas and content (see Tests) |
+| `manifest.webmanifest`, `sw.js`, `icons/` | App install and offline play on the hosted site (see Install and offline play) |
+| `.github/workflows/ci.yml` | Tests on every push / PR; deploys `main` to GitHub Pages |
 
 Both `content.js` and `formulas.js` are plain scripts that also work with `require()`, which is how the tests load them.
 
@@ -237,8 +258,8 @@ v0.7 still saves to `ruin_wars_save_v4`, now with `saveVersion: 6`; older v4 sav
 
 ## Suggested next features
 
-1. Achievements and a daily login reward.
-2. Background music (an ambient loop behind the sound toggle).
+1. A fourth region beyond the Wastes, with its own quests, foes, boss and collection.
+2. Seasonal events (e.g. a Midsummer tourney with limited-time foes).
 
 ## License
 

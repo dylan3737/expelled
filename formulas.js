@@ -20,6 +20,7 @@
   const BAND_HIRE_BASE = 30; // gold for the first hire; +BAND_HIRE_STEP per recruit already in the band
   const BAND_HIRE_STEP = 20;
   const BACKUP_PREFIX = "RW1.";
+  const DAILY_STREAK_MAX = 7; // the daily tribute grows for 7 days in a row, then stays at that size
 
   /** XP needed to go from `level` to level+1 — kept gentle early */
   function xpForLevel(level) {
@@ -115,7 +116,47 @@
     return data;
   }
 
+  /** Local calendar day as "YYYY-MM-DD" (the daily tribute resets at the player's midnight). */
+  function dayKey(date) {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, "0");
+    const d = String(date.getDate()).padStart(2, "0");
+    return y + "-" + m + "-" + d;
+  }
+
+  /** Whole calendar days from day key a to day key b (b later → positive). */
+  function daysBetween(a, b) {
+    const pa = a.split("-").map(Number);
+    const pb = b.split("-").map(Number);
+    const ua = Date.UTC(pa[0], pa[1] - 1, pa[2]);
+    const ub = Date.UTC(pb[0], pb[1] - 1, pb[2]);
+    return Math.round((ub - ua) / 86400000);
+  }
+
+  /**
+   * Streak the player would be on if they claimed today: +1 after claiming yesterday,
+   * back to 1 after a missed day (or on the first claim). Null when already claimed today.
+   */
+  function dailyStreakIfClaimed(lastDay, today, streak) {
+    if (!lastDay) return 1;
+    const gap = daysBetween(lastDay, today);
+    if (gap <= 0) return null;
+    if (gap === 1) return (streak || 0) + 1;
+    return 1;
+  }
+
+  /** Gold for the daily tribute: grows with level and with the streak (capped at 7 days). */
+  function dailyGold(level, streak) {
+    const day = Math.min(DAILY_STREAK_MAX, Math.max(1, streak));
+    return (50 + level * 25) * day;
+  }
+
   return {
+    DAILY_STREAK_MAX: DAILY_STREAK_MAX,
+    dayKey: dayKey,
+    daysBetween: daysBetween,
+    dailyStreakIfClaimed: dailyStreakIfClaimed,
+    dailyGold: dailyGold,
     FIGHT_ODDS_MIN: FIGHT_ODDS_MIN,
     FIGHT_ODDS_MAX: FIGHT_ODDS_MAX,
     BACKUP_PREFIX: BACKUP_PREFIX,

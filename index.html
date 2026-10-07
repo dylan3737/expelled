@@ -4,6 +4,11 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Ruin Wars</title>
+  <meta name="description" content="An Arthurian clicker in the spirit of Mafia Wars: quests, duels, bosses and a knight band." />
+  <meta name="theme-color" content="#1a1612" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" type="image/png" href="icons/icon-192.png" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png" />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
@@ -14,12 +19,29 @@
         <p class="tagline">Quests among the fallen kingdoms</p>
       </div>
       <div class="header-actions">
+        <button type="button" id="btn-guide" class="btn btn-ghost" title="Show the quick guide">How to play</button>
         <button type="button" id="btn-rename" class="btn btn-ghost" title="Rename your knight">Rename</button>
         <button type="button" id="btn-sound" class="btn btn-ghost" aria-pressed="false" title="Turn sound effects on or off">Sound: off</button>
+        <button type="button" id="btn-music" class="btn btn-ghost" aria-pressed="false" title="Turn background music on or off">Music: off</button>
         <button type="button" id="btn-backup" class="btn btn-ghost" title="Copy or load your save">Backup</button>
         <button type="button" id="btn-reset" class="btn btn-ghost danger" title="Wipe save">Reset</button>
       </div>
     </header>
+
+    <section id="guide" class="panel guide" aria-labelledby="guide-heading" hidden>
+      <h2 id="guide-heading">How to play</h2>
+      <ol class="guide-steps">
+        <li><strong>Quests</strong> spend Energy for gold and XP. Energy refills by itself (about 1 every 12 seconds). Start with <em>Patrol the Outer Walls</em>.</li>
+        <li><strong>Buy the Tempered Blade</strong> in the Armory as soon as you have 40 gold: +12 attack and +35% gold.</li>
+        <li><strong>The Lists</strong> spend Stamina on duels. Each foe shows your win chance; wins pay gold, XP and loot. If you fall, rest at the Chapel.</li>
+        <li><strong>Grow stronger</strong>: hire knights in your Band, equip loot under Gear, buy Holdings that earn gold while you're away, and train in the Armory.</li>
+        <li><strong>Go further</strong>: Avalon opens at Level 10 and the Wastes at 20. Bosses start at Level 12, and at Level 30 you can begin a new legend for Renown.</li>
+      </ol>
+      <p class="panel-intro">A dot on a tab means something there is waiting for you. Your progress saves in this browser; use Backup to move it.</p>
+      <div class="dialog-row">
+        <button type="button" id="guide-close" class="btn btn-primary">Got it</button>
+      </div>
+    </section>
 
     <form id="rename-form" class="header-dialog panel" hidden>
       <label for="rename-input" class="label">Name your knight</label>
@@ -97,6 +119,8 @@
         <span class="regen-hint" id="band-hint">Atk 8 · Def 3</span>
       </div>
     </section>
+
+    <div id="daily-bar" class="daily-bar" hidden></div>
 
     <nav class="tabs" aria-label="Game sections">
       <div id="tab-bar" class="tab-bar" role="tablist">
@@ -201,6 +225,15 @@
         <div id="renown-box" class="renown-box"></div>
       </section>
 
+      <section class="panel" aria-labelledby="achievements-heading" data-panel="chronicle" role="tabpanel">
+        <h2 id="achievements-heading">Achievements</h2>
+        <p class="panel-intro">
+          Deeds remembered for good, even through a new legend. Each pays its gold once.
+          <span id="achievements-summary" class="achv-summary"></span>
+        </p>
+        <div id="achievements-list" class="achv-list"></div>
+      </section>
+
       <section class="panel log-panel" aria-labelledby="log-heading" data-panel="chronicle" role="tabpanel">
         <h2 id="log-heading">Chronicle</h2>
         <ul id="log" class="log" aria-live="polite"></ul>
@@ -211,9 +244,10 @@
     </main>
 
     <footer class="footer">
-      <span>Ruin Wars v0.8 — local save in this browser</span>
+      <span>Ruin Wars v0.9 — local save in this browser</span>
     </footer>
   </div>
+  <div id="toasts" class="toasts" aria-live="polite"></div>
   <script src="formulas.js"></script>
   <script src="content.js"></script>
   <script src="game.js"></script>

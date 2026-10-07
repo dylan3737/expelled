@@ -101,3 +101,30 @@ test("decodeBackup accepts raw JSON and rejects things that aren't saves", () =>
   assert.throws(() => F.decodeBackup("garbage"));
   assert.throws(() => F.decodeBackup(F.BACKUP_PREFIX + "%%%"));
 });
+
+test("dayKey uses the local calendar date", () => {
+  assert.equal(F.dayKey(new Date(2026, 0, 5, 23, 59)), "2026-01-05");
+  assert.equal(F.dayKey(new Date(2026, 11, 31, 0, 1)), "2026-12-31");
+});
+
+test("daysBetween counts calendar days across months and years", () => {
+  assert.equal(F.daysBetween("2026-10-07", "2026-10-07"), 0);
+  assert.equal(F.daysBetween("2026-10-31", "2026-11-01"), 1);
+  assert.equal(F.daysBetween("2026-12-31", "2027-01-02"), 2);
+  assert.equal(F.daysBetween("2026-03-28", "2026-03-30"), 2); // across a DST change
+});
+
+test("daily streak: first claim, next day, missed day, same day", () => {
+  assert.equal(F.dailyStreakIfClaimed(null, "2026-10-07", 0), 1);
+  assert.equal(F.dailyStreakIfClaimed("2026-10-06", "2026-10-07", 3), 4);
+  assert.equal(F.dailyStreakIfClaimed("2026-10-04", "2026-10-07", 3), 1);
+  assert.equal(F.dailyStreakIfClaimed("2026-10-07", "2026-10-07", 3), null);
+  assert.equal(F.dailyStreakIfClaimed("2026-10-08", "2026-10-07", 3), null); // clock moved back
+});
+
+test("daily gold grows with level and streak, capped at 7 days", () => {
+  assert.equal(F.dailyGold(1, 1), 75);
+  assert.equal(F.dailyGold(10, 3), 900);
+  assert.equal(F.dailyGold(10, 7), F.dailyGold(10, 30));
+  assert.equal(F.dailyGold(10, 0), F.dailyGold(10, 1));
+});
