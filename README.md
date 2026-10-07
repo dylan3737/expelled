@@ -2,7 +2,9 @@
 
 Arthurian / fantasy clicker starter in the spirit of old Facebook *Mafia Wars*: spend **Energy** on quests across **three regions** (with **mastery** + **story**), **Stamina** on arena fights and **boss** strikes, manage **Health**, grow a **knight band**, earn **gold** and **XP**, buy **holdings** for passive income, find **loot** to equip, complete **collections**, level up, and buy permanent shop upgrades. No backend — pure static HTML/CSS/JS with `localStorage` saves.
 
-**Current version: v0.7** — a gentler start and a longer end: a softer first foe plus a Tempered Blade tip, a third boss (**the Questing Beast**), and **Renown** (prestige). v0.6 made it easier to play: tabs instead of one long page, a save backup you can copy and paste, and clearer feedback (floating gains, a level-up flash, time-until-full on Energy / Stamina / Health). v0.5 deepened the economy (ranked training, region-tiered loot you can sell, odds-based bouts, quest requirements); v0.4 added Regions, Bosses, Knight Band and Collections.
+**Play it:** https://dylan3737.github.io/ruin_wars/ (published from `main` by GitHub Actions once Pages is turned on, see [Hosting](#hosting)).
+
+**Current version: v0.8** — seven new foes in The Lists for Avalon and the Wastes, optional sound effects, and tests + deploys on GitHub Actions. v0.7 brought a gentler start and a longer end: a softer first foe plus a Tempered Blade tip, a third boss (**the Questing Beast**), and **Renown** (prestige). v0.6 made it easier to play: tabs instead of one long page, a save backup you can copy and paste, and clearer feedback (floating gains, a level-up flash, time-until-full on Energy / Stamina / Health). v0.5 deepened the economy (ranked training, region-tiered loot you can sell, odds-based bouts, quest requirements); v0.4 added Regions, Bosses, Knight Band and Collections.
 
 ## Resources
 
@@ -18,6 +20,28 @@ Arthurian / fantasy clicker starter in the spirit of old Facebook *Mafia Wars*: 
 - Energy regenerates about every **12s**; Stamina about every **18s** (slower, more Mafia Wars–like).
 - Quest cooldowns are **short on early jobs**, **long on late jobs** (up to a few minutes).
 - Fight opponent cooldowns are longer too.
+
+## v0.8
+
+### New foes in The Lists
+The Lists now groups foes under region headings and shows every foe you can face plus the next one to unlock.
+
+| Foe | Region | Level | Power | Stamina | Gold / XP | Damage | Cooldown |
+|-----|--------|-------|-------|---------|-----------|--------|----------|
+| **Grove Thief** | Avalon | 10 | 115 | 13 | 170 / 175 | 22–38 | 100s |
+| Faerie Champion | Avalon | 11 | 140 | 14 | 200 / 200 | 26–44 | 120s |
+| **Warden of the Lake** | Avalon | 14 | 175 | 15 | 260 / 245 | 28–48 | 130s |
+| **Glamoured Knight** | Avalon | 17 | 210 | 16 | 330 / 300 | 32–52 | 140s |
+| Mordred's Outrider | Wastes | 20 | 230 | 16 | 380 / 330 | 34–56 | 150s |
+| **Barrow-Wight** | Wastes | 22 | 265 | 17 | 440 / 380 | 36–60 | 160s |
+| **Saxon Huscarl** | Wastes | 25 | 305 | 18 | 520 / 440 | 40–66 | 170s |
+| **Mordred's Black Guard** | Wastes | 28 | 350 | 19 | 610 / 510 | 44–72 | 180s |
+| **Camlann Revenant** | Wastes | 30 | 395 | 20 | 720 / 590 | 48–78 | 200s |
+
+Wins against Avalon and Wastes foes roll that region's loot, so these are new ways to farm late-game gear.
+
+### Sound
+**Sound: off / on** in the header toggles short synthesized cues (Web Audio, no audio files): quest complete, coins, spending, fight win / loss, boss strike, healing, level-up and a boss-kill fanfare. Off by default; the choice is remembered per browser (`localStorage` key `ruin_wars_sound`, separate from the save).
 
 ## v0.7 systems
 
@@ -174,7 +198,13 @@ npm test        # runs node --test over tests/*.test.js
 - `tests/formulas.test.js` — XP curve, quest cooldowns, fight odds and upset bonus, defense soak, training costs, band cap / hire cost, time-until-full, backup code round-trips.
 - `tests/content.test.js` — sanity checks on `content.js`: unique ids, quests in real regions with a story beat at every mastery rank, band requirements reachable at each quest's level, 3 weapons / 3 armors / 3 relics per region, every boss drops a real unique and collection piece and has a legend, named-knight boss bonuses point at real bosses.
 
-Run them after any balance edit in `content.js`.
+Run them after any balance edit in `content.js`. GitHub Actions also runs them on every push and pull request.
+
+## Hosting
+
+`.github/workflows/ci.yml` runs `npm test` on every push and pull request. When a push to `main` passes, it copies the five game files into a site and deploys it to **GitHub Pages** at https://dylan3737.github.io/ruin_wars/.
+
+One-time setup: in the repo on GitHub, open **Settings → Pages** and set **Source** to **GitHub Actions**. Until then the deploy job fails (the tests still run). Saves live in each browser, so a save from another copy of the game (a local file or the Claude artifact) moves over with **Backup → Copy my save / Load pasted save**.
 
 ## Code layout
 
@@ -208,8 +238,7 @@ v0.7 still saves to `ruin_wars_save_v4`, now with `saveVersion: 6`; older v4 sav
 ## Suggested next features
 
 1. Achievements and a daily login reward.
-2. More region-specific foes in The Lists.
-3. Optional sound cues.
+2. Background music (an ambient loop behind the sound toggle).
 
 ## License
 

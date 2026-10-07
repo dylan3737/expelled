@@ -164,6 +164,15 @@ body {
   outline-offset: 1px;
 }
 
+.list-region {
+  margin: 0.4rem 0 -0.2rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-dim);
+}
+
 /* --- New-player tip, Renown --- */
 
 .tip {

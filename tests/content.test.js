@@ -61,6 +61,22 @@ test("foes come from known regions (or default to Camelot)", () => {
   });
 });
 
+test("foes get harder and pay more as their level rises", () => {
+  const sorted = C.FOES.slice().sort((a, b) => a.minLevel - b.minLevel || a.power - b.power);
+  for (let i = 1; i < sorted.length; i++) {
+    const a = sorted[i - 1];
+    const b = sorted[i];
+    assert.ok(b.power > a.power, b.id + " should be stronger than " + a.id);
+    assert.ok(b.gold > a.gold && b.xp > a.xp, b.id + " should pay more than " + a.id);
+  }
+});
+
+test("Avalon and the Wastes each have at least 3 foes in The Lists", () => {
+  ["avalon", "wastes"].forEach((region) => {
+    assert.ok(C.FOES.filter((f) => f.region === region).length >= 3, region);
+  });
+});
+
 test("each region drops 3 weapons, 3 armors and 3 relics", () => {
   regionIds.forEach((region) => {
     const pool = C.LOOT.filter((L) => L.region === region && L.weight > 0);

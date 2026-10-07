@@ -1,5 +1,5 @@
 /**
- * Ruin Wars — core game loop (v0.7). Content tables live in content.js, pure formulas in formulas.js.
+ * Ruin Wars — core game loop (v0.8). Content tables live in content.js, pure formulas in formulas.js.
  * Quests (Energy) across Regions + mastery/story/requirements, The Lists (Stamina/Health, odds-based
  * bouts), Bosses, Knight Band, Holdings (passive gold), Loot/Inventory (region tiers, equip, sell),
  * Collections, shop upgrades + ranked training.
@@ -1939,6 +1939,7 @@
     resetYes: document.getElementById("reset-yes"),
     resetCancel: document.getElementById("reset-cancel"),
     btnBackup: document.getElementById("btn-backup"),
+    btnSound: document.getElementById("btn-sound"),
     backupPanel: document.getElementById("backup-panel"),
     backupText: document.getElementById("backup-text"),
     backupCopy: document.getElementById("backup-copy"),
@@ -2065,9 +2066,171 @@
     if (!target || target.disabled) return;
     const fn = ACTIONS[target.getAttribute("data-action")];
     if (!fn) return;
+    const action = target.getAttribute("data-action");
     const before = feedbackSnapshot();
     fn(target.getAttribute("data-id"));
     showActionFeedback(target, before);
+    playCue(cueForAction(action, before));
+  }
+
+  // --- Sound: short synthesized cues (Web Audio), off by default ---
+
+  const SOUND_PREF_KEY = "ruin_wars_sound"; // per-browser preference, not part of the save
+  let soundOn = false;
+  let audioCtx = null;
+
+  function readSoundPref() {
+    try {
+      return localStorage.getItem(SOUND_PREF_KEY) === "on";
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function renderSoundToggle() {
+    el.btnSound.textContent = soundOn ? "Sound: on" : "Sound: off";
+    el.btnSound.setAttribute("aria-pressed", soundOn ? "true" : "false");
+  }
+
+  function toggleSound() {
+    soundOn = !soundOn;
+    try {
+      localStorage.setItem(SOUND_PREF_KEY, soundOn ? "on" : "off");
+    } catch (e) {
+      // ignore: the toggle still works for this visit
+    }
+    renderSoundToggle();
+    if (soundOn) playCue("quest");
+  }
+
+  function audio() {
+    if (!audioCtx) {
+      const Ctx = window.AudioContext || window.webkitAudioContext;
+      if (!Ctx) return null;
+      audioCtx = new Ctx();
+    }
+    if (audioCtx.state === "suspended") audioCtx.resume();
+    return audioCtx;
+  }
+
+  /** One enveloped note: freq in Hz, start offset and length in seconds. */
+  function tone(ctx, freq, start, length, type, volume, slideTo) {
+    const t0 = ctx.currentTime + start;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, t0);
+    if (slideTo) osc.frequency.exponentialRampToValueAtTime(slideTo, t0 + length);
+    gain.gain.setValueAtTime(0.0001, t0);
+    gain.gain.exponentialRampToValueAtTime(volume, t0 + 0.012);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t0 + length);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start(t0);
+    osc.stop(t0 + length + 0.02);
+  }
+
+  /** A short burst of filtered noise: the clang of a hit. */
+  function clash(ctx, start, length, volume) {
+    const t0 = ctx.currentTime + start;
+    const frames = Math.floor(ctx.sampleRate * length);
+    const buffer = ctx.createBuffer(1, frames, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < frames; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / frames);
+    const src = ctx.createBufferSource();
+    src.buffer = buffer;
+    const filter = ctx.createBiquadFilter();
+    filter.type = "bandpass";
+    filter.frequency.value = 2400;
+    filter.Q.value = 3;
+    const gain = ctx.createGain();
+    gain.gain.value = volume;
+    src.connect(filter).connect(gain).connect(ctx.destination);
+    src.start(t0);
+  }
+
+  const CUES = {
+    quest: function (ctx) {
+      tone(ctx, 659, 0, 0.18, "triangle", 0.18);
+      tone(ctx, 988, 0.09, 0.3, "triangle", 0.15);
+    },
+    coin: function (ctx) {
+      tone(ctx, 1319, 0, 0.08, "square", 0.05);
+      tone(ctx, 1760, 0.06, 0.16, "square", 0.05);
+    },
+    spend: function (ctx) {
+      tone(ctx, 1047, 0, 0.08, "square", 0.04);
+      tone(ctx, 784, 0.06, 0.14, "square", 0.04);
+    },
+    win: function (ctx) {
+      clash(ctx, 0, 0.12, 0.35);
+      tone(ctx, 523, 0.08, 0.16, "triangle", 0.14);
+      tone(ctx, 784, 0.16, 0.26, "triangle", 0.14);
+    },
+    loss: function (ctx) {
+      clash(ctx, 0, 0.1, 0.25);
+      tone(ctx, 196, 0.06, 0.4, "sine", 0.22, 131);
+    },
+    hit: function (ctx) {
+      clash(ctx, 0, 0.14, 0.4);
+      tone(ctx, 147, 0, 0.22, "sine", 0.2, 98);
+    },
+    heal: function (ctx) {
+      tone(ctx, 523, 0, 0.3, "sine", 0.12);
+      tone(ctx, 659, 0.12, 0.4, "sine", 0.1);
+    },
+    levelup: function (ctx) {
+      [523, 659, 784, 1047].forEach(function (f, i) {
+        tone(ctx, f, i * 0.09, 0.32, "triangle", 0.16);
+      });
+    },
+    boss: function (ctx) {
+      clash(ctx, 0, 0.18, 0.4);
+      [392, 523, 659, 784].forEach(function (f, i) {
+        tone(ctx, f, 0.12 + i * 0.12, i === 3 ? 0.7 : 0.2, "sawtooth", 0.07);
+        tone(ctx, f, 0.12 + i * 0.12, i === 3 ? 0.7 : 0.2, "triangle", 0.12);
+      });
+    },
+  };
+
+  function playCue(name) {
+    if (!soundOn || !name || !CUES[name]) return;
+    try {
+      const ctx = audio();
+      if (ctx) CUES[name](ctx);
+    } catch (e) {
+      // audio unavailable: play silently
+    }
+  }
+
+  const SPEND_ACTIONS = ["upgrade", "train", "hire", "named", "buy-holding", "upgrade-holding"];
+
+  /** Pick a sound for what an action just did (null when nothing happened). */
+  function cueForAction(action, before) {
+    const dGold = state.gold - before.gold;
+    if (state.level > before.level) return "levelup";
+    if (bossKills() > before.bossKills) return "boss";
+    if (action === "quest") return dGold > 0 ? "quest" : null;
+    if (action === "fight") {
+      if (dGold > 0) return "win";
+      return state.health < before.health || state.xp !== before.xp ? "loss" : null;
+    }
+    if (action === "boss") return dGold > 0 ? "hit" : null;
+    if (action === "heal") return state.health > before.health ? "heal" : null;
+    if (action === "rally") return bandSize() > before.band ? "quest" : null;
+    if (action === "redeem") return redeemedCount() > before.redeemed ? "quest" : null;
+    if (SPEND_ACTIONS.indexOf(action) >= 0) return dGold < 0 ? "spend" : null;
+    return dGold > 0 ? "coin" : null;
+  }
+
+  function redeemedCount() {
+    return Object.keys(state.collectionsRedeemed || {}).length;
+  }
+
+  function bossKills() {
+    return BOSSES.reduce(function (sum, def) {
+      const b = state.bosses && state.bosses[def.id];
+      return sum + (b ? b.kills : 0);
+    }, 0);
   }
 
   // --- Tabs ---
@@ -2202,7 +2365,15 @@
   // --- Action feedback: floating gains / losses and a level-up flash ---
 
   function feedbackSnapshot() {
-    return { gold: state.gold, xp: state.xp, level: state.level, health: state.health };
+    return {
+      gold: state.gold,
+      xp: state.xp,
+      level: state.level,
+      health: state.health,
+      band: bandSize(),
+      bossKills: bossKills(),
+      redeemed: redeemedCount(),
+    };
   }
 
   /** XP gained between two (level, xp) points, counting across level-ups. */
@@ -2467,8 +2638,25 @@
       tip.appendChild(go);
       frag.appendChild(tip);
     }
+    // Show every foe you can face plus the next one to unlock, grouped under region headings.
+    const nextLocked = FOES.filter(function (f) {
+      return state.level < f.minLevel;
+    }).sort(function (a, b) {
+      return a.minLevel - b.minLevel;
+    })[0];
+    let lastRegion = null;
     FOES.forEach(function (f) {
       const locked = state.level < f.minLevel;
+      if (locked && f !== nextLocked) return;
+      const regionId = f.region || "camelot";
+      if (regionId !== lastRegion) {
+        lastRegion = regionId;
+        const head = document.createElement("h3");
+        head.className = "list-region";
+        head.setAttribute("data-key", "foe-region:" + regionId);
+        head.textContent = getRegion(regionId).name;
+        frag.appendChild(head);
+      }
       const canAfford = state.stamina >= f.stamina;
       const cdLeft = fightCooldownRemaining(f.id);
       const onCooldown = cdLeft > 0;
@@ -3327,6 +3515,7 @@
   el.resetYes.addEventListener("click", resetGame);
   el.resetCancel.addEventListener("click", closeHeaderDialogs);
   el.btnBackup.addEventListener("click", openBackup);
+  el.btnSound.addEventListener("click", toggleSound);
   el.backupCopy.addEventListener("click", copyBackup);
   el.backupLoad.addEventListener("click", loadBackup);
   el.backupClose.addEventListener("click", closeHeaderDialogs);
@@ -3350,6 +3539,8 @@
     );
   }
   setTab(initialTab());
+  soundOn = readSoundPref();
+  renderSoundToggle();
   render();
   setInterval(tick, TICK_MS);
 
