@@ -22,9 +22,12 @@
   const BACKUP_PREFIX = "RW1.";
   const DAILY_STREAK_MAX = 7; // the daily tribute grows for 7 days in a row, then stays at that size
 
-  /** XP needed to go from `level` to level+1 — kept gentle early */
+  /**
+   * XP needed to go from `level` to level+1: quick first levels, then steep (≈ level^2.5), so a
+   * level takes several bars of Energy even though each level-up refills Energy.
+   */
   function xpForLevel(level) {
-    return Math.floor(35 + level * 22 + Math.pow(level, 1.15) * 6);
+    return Math.floor(40 + 8 * Math.pow(level, 2.5));
   }
 
   /**
@@ -151,8 +154,29 @@
     return (50 + level * 25) * day;
   }
 
+  /**
+   * The event running on `date` (local time), or null. Returns { event, key, endsAt } where key is
+   * "<id>-<year the event started>" and endsAt is the last moment of its final day.
+   */
+  function activeEvent(events, date) {
+    const md = String(date.getMonth() + 1).padStart(2, "0") + "-" + String(date.getDate()).padStart(2, "0");
+    const year = date.getFullYear();
+    for (let i = 0; i < events.length; i++) {
+      const e = events[i];
+      const wraps = e.start > e.end; // e.g. 12-20 → 01-06
+      const inside = wraps ? md >= e.start || md <= e.end : md >= e.start && md <= e.end;
+      if (!inside) continue;
+      const startYear = wraps && md <= e.end ? year - 1 : year;
+      const endYear = wraps ? startYear + 1 : startYear;
+      const [em, ed] = e.end.split("-").map(Number);
+      return { event: e, key: e.id + "-" + startYear, endsAt: new Date(endYear, em - 1, ed, 23, 59, 59) };
+    }
+    return null;
+  }
+
   return {
     DAILY_STREAK_MAX: DAILY_STREAK_MAX,
+    activeEvent: activeEvent,
     dayKey: dayKey,
     daysBetween: daysBetween,
     dailyStreakIfClaimed: dailyStreakIfClaimed,

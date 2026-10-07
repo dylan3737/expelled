@@ -221,6 +221,29 @@ body {
   color: var(--gold);
 }
 
+.event-bar {
+  border-color: var(--mastery);
+}
+
+.event-bar strong {
+  color: var(--mastery);
+}
+
+.event-desc {
+  display: block;
+  margin-top: 0.15rem;
+  font-size: 0.82rem;
+  color: var(--text-dim);
+}
+
+.list-region.event-head {
+  color: var(--mastery);
+}
+
+.card.event-card {
+  border-color: var(--mastery);
+}
+
 .achv-summary {
   display: block;
   margin-top: 0.25rem;

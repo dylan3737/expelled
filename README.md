@@ -4,7 +4,7 @@ Arthurian / fantasy clicker starter in the spirit of old Facebook *Mafia Wars*: 
 
 **Play it:** https://dylan3737.github.io/ruin_wars/ (published from `main` by GitHub Actions once Pages is turned on, see [Hosting](#hosting)).
 
-**Current version: v0.9** — a first-visit guide, 25 achievements, a daily tribute, background music, and an installable app that plays offline. v0.8 added seven new foes in The Lists, sound effects, and tests + deploys on GitHub Actions; v0.7 brought a gentler start and a longer end: a softer first foe plus a Tempered Blade tip, a third boss (**the Questing Beast**), and **Renown** (prestige). v0.6 made it easier to play: tabs instead of one long page, a save backup you can copy and paste, and clearer feedback (floating gains, a level-up flash, time-until-full on Energy / Stamina / Health). v0.5 deepened the economy (ranked training, region-tiered loot you can sell, odds-based bouts, quest requirements); v0.4 added Regions, Bosses, Knight Band and Collections.
+**Current version: v1.0** — a fourth region (**Lyonesse**, Level 35), **seasonal tourneys**, a balance pass driven by a simulated player (levels now take much longer), and fixes from a code review. v0.9 added a first-visit guide, achievements, a daily tribute, music and an installable app; v0.8 added seven new foes in The Lists, sound effects, and tests + deploys on GitHub Actions; v0.7 brought a gentler start and a longer end: a softer first foe plus a Tempered Blade tip, a third boss (**the Questing Beast**), and **Renown** (prestige). v0.6 made it easier to play: tabs instead of one long page, a save backup you can copy and paste, and clearer feedback (floating gains, a level-up flash, time-until-full on Energy / Stamina / Health). v0.5 deepened the economy (ranked training, region-tiered loot you can sell, odds-based bouts, quest requirements); v0.4 added Regions, Bosses, Knight Band and Collections.
 
 ## Resources
 
@@ -21,13 +21,71 @@ Arthurian / fantasy clicker starter in the spirit of old Facebook *Mafia Wars*: 
 - Quest cooldowns are **short on early jobs**, **long on late jobs** (up to a few minutes).
 - Fight opponent cooldowns are longer too.
 
+## v1.0
+
+### Lyonesse (Level 35)
+The drowned land past Cornwall: a fourth quest board, foes, loot tier, collection, boss and holding.
+
+| Quest | Level | Energy | Gold / XP | Cooldown | Needs |
+|-------|-------|--------|-----------|----------|-------|
+| Walk the Tide Road | 35 | 38 | 1,900 / 1,500 | 5.5 min | 32 knights |
+| Ring the Drowned Bells | 36 | 41 | 2,150 / 1,700 | 5.75 min | weapon |
+| Escort Tristan's Ship | 38 | 44 | 2,450 / 1,900 | 6 min | 35 knights |
+| Hold the Last Sea-Wall | 40 | 47 | 2,800 / 2,150 | 6.5 min | 38 knights, armor |
+| Bargain with the Merrow-Queen | 42 | 51 | 3,200 / 2,400 | 7 min | 40 knights |
+| Raise the Lost City | 45 | 55 | 3,600 / 2,700 | 7.5 min | 44 knights, weapon, armor |
+
+- **Foes**: Drowned Sentinel (35, power 440), Reef Knight (38, 490), Sea-Witch of the Scillies (41, 545), King Mark's Champion (44, 600).
+- **Loot**: Tidewrought Blade / Coral-Hilted Sword / Trident of the Drowned King (+60 / +80 / +105 attack), Kelp-Woven Mail / Pearl Scale / Armor of the Sea-Wall (up to +26% gold, +62 def, +22 atk), and three relics.
+- **Boss — the Drowned King** (Level 42): 30,000 HP, 70 HP/min regen, 12 Stamina per strike, counter 26–46, returns after 2 h. Kill: 45,000 gold, 15,000 XP, **Bell of Lyonesse** (relic: +12% gold, +12% XP, +25 def) and a Lyonesse piece.
+- **Collection — Treasures of Lyonesse**: +20 attack, +20 defense, +10 max Energy.
+- **Holding — Coastal Tin Mine** (Level 35, 24,000g, +900g / 5 min).
+- Achievements: *Under the Tide* (reach Level 35), *Let Them Ring* (slay the Drowned King).
+
+### Seasonal tourneys
+Five events by local calendar date (`EVENTS` in `content.js`; dates are inclusive and may cross New Year):
+
+| Event | Dates | Champion | Relic for 10 tokens |
+|-------|-------|----------|---------------------|
+| Beltane Fires | Apr 28 – May 5 | Bonfire Champion | Beltane Garland (+6% XP) |
+| Midsummer Tourney | Jun 18 – Jun 30 | Tourney Champion of Caerleon | Lady's Midsummer Favor (+6% gold, +10 atk) |
+| Harvest Tourney | Sep 22 – Oct 12 | Michaelmas Champion | Golden Harvest Sheaf (+8% gold) |
+| The Wild Hunt | Oct 28 – Nov 4 | Huntsman of the Wild Hunt | Horn of the Wild Hunt (+20 atk, +10 def) |
+| Yuletide Game | Dec 20 – Jan 6 | Green Knight's Herald | Yule Holly Crown (+5% gold, +5% XP) |
+
+While one runs, a banner under the stats shows its progress and the champion tops The Lists. The champion always matches your strength (power = 1.05 × your attack, about 45% odds), costs 10 Stamina, rests 3 minutes between bouts, and pays `20 + 15 × level` gold and `20 + 12 × level` XP. Each win is a token; at 10 tokens, **Claim reward** grants the event relic, once per event per year. Progress is saved per event and year (`events["harvest-2026"]`) and kept through Renown. Achievement: *Festival Knight*. The date logic is `activeEvent()` in `formulas.js`, unit-tested, and a content test checks no two events overlap.
+
+### Balance pass
+`tools/balance-sim.js` plays the real game in a headless browser under a fake clock: it buys upgrades, hires, equips, heals, strikes bosses, fights and quests, and logs when each milestone happens. Its first run found that the old XP curve let one quest earn a whole level, and since each level-up refills Energy, a knight could chain to Level 30 in minutes. Changes:
+
+- **XP per level** is now `40 + 8 × level^2.5` (was `35 + 22 × level + 6 × level^1.15`): Level 10 needs 2,569 XP (was 339), Level 30 needs 39,476 (was 994).
+- **Training caps** raised so late gold has somewhere to go: Whetstone and Shield-Wall 40 ranks, Ledger and Tomes 30, Wagon 15.
+- **Tourney champion** pays half what it first did, so it's a bonus rather than the best farm.
+
+Simulated nonstop play after the changes (a lower bound; casual players take far longer):
+
+| Milestone | Time |
+|-----------|------|
+| Level 10 | 25 min |
+| Green Knight first kill | 1.2 h |
+| Level 20 | 5.3 h |
+| Mordred first kill | 12.5 h |
+| Level 30 | 18.6 h |
+| Questing Beast first kill | 23.3 h |
+| Level 35 (Lyonesse) | 28.9 h |
+
+Re-run it after balance edits: serve the folder, then `node tools/balance-sim.js http://localhost:8765/ 80 out.json` (needs Playwright; `STOP_LEVEL` picks where it stops).
+
+### Code review fixes
+Music saved as on now starts on phones; a kept unreadable save is never overwritten; repeated chronicle lines refresh the ticker; daily-tribute gains float from the Gold stat; ticks render only the open tab; the Blade tip reads its numbers from content; one shared weighted-random pick; one pair of per-browser setting helpers; the service worker waits for its offline copy to be written.
+
 ## v0.9
 
 ### How to play
 New knights (Level 3 or below) see a five-step guide above the stats until they press **Got it**; **How to play** in the header brings it back. Dismissing it is remembered per browser (`ruin_wars_guide_seen`).
 
 ### Achievements
-25 achievements live in `content.js` (`ACHIEVEMENTS`) and show in the Chronicle tab with progress bars. Each pays its gold once, is announced with a banner and a chime, and is kept through Renown. Checks: quests completed, quests at Master rank, level, bouts won, upset wins (odds under 30%), each boss slain, band size, all named knights, all holdings, collections redeemed, training ranks, Renown, and a 7-day tribute streak. Older saves are credited for deeds already done on first load (one summary line).
+Achievements (25 at v0.9, 28 with v1.0) live in `content.js` (`ACHIEVEMENTS`) and show in the Chronicle tab with progress bars. Each pays its gold once, is announced with a banner and a chime, and is kept through Renown. Checks: quests completed, quests at Master rank, level, bouts won, upset wins (odds under 30%), each boss slain, band size, all named knights, all holdings, collections redeemed, training ranks, Renown, and a 7-day tribute streak. Older saves are credited for deeds already done on first load (one summary line).
 
 New lifetime counters in the save: `stats.fightWins`, `stats.upsets`.
 
@@ -105,11 +163,11 @@ Below the three one-time relics, **Training** can be bought rank after rank. Nex
 
 | Training | Per rank | Base cost | Growth | Max rank |
 |----------|----------|-----------|--------|----------|
-| **Whetstone Drills** | +4 attack | 150 | ×1.35 | 20 |
-| **Shield-Wall Drills** | +4 defense | 150 | ×1.35 | 20 |
-| **Steward's Ledger** | +3% gold | 250 | ×1.4 | 20 |
-| **Scholar's Tomes** | +3% XP | 250 | ×1.4 | 20 |
-| **Provisioner's Wagon** | +3 max Energy | 400 | ×1.5 | 10 |
+| **Whetstone Drills** | +4 attack | 150 | ×1.35 | 40 (20 before v1.0) |
+| **Shield-Wall Drills** | +4 defense | 150 | ×1.35 | 40 (20 before v1.0) |
+| **Steward's Ledger** | +3% gold | 250 | ×1.4 | 30 (20 before v1.0) |
+| **Scholar's Tomes** | +3% XP | 250 | ×1.4 | 30 (20 before v1.0) |
+| **Provisioner's Wagon** | +3 max Energy | 400 | ×1.5 | 15 (10 before v1.0) |
 
 ### Region-tiered loot + selling
 - Random drops roll from the pool of the region they were won in: a quest's region, or the foe's region in The Lists (Faerie Champion = Avalon, Mordred's Outrider = Wastes, the rest = Camelot).
@@ -214,8 +272,8 @@ Plain Node, no dependencies (Node 18+):
 npm test        # runs node --test over tests/*.test.js
 ```
 
-- `tests/formulas.test.js` — XP curve, quest cooldowns, fight odds and upset bonus, defense soak, training costs, band cap / hire cost, time-until-full, backup code round-trips, daily tribute dates / streak / gold.
-- `tests/content.test.js` — sanity checks on `content.js`: unique ids, quests in real regions with a story beat at every mastery rank, band requirements reachable at each quest's level, 3 weapons / 3 armors / 3 relics per region, every boss drops a real unique and collection piece and has a legend, named-knight boss bonuses point at real bosses, foes get harder and pay more with level, and achievements use known checks with reachable targets.
+- `tests/formulas.test.js` — XP curve, quest cooldowns, seasonal event dates (including across New Year), fight odds and upset bonus, defense soak, training costs, band cap / hire cost, time-until-full, backup code round-trips, daily tribute dates / streak / gold.
+- `tests/content.test.js` — sanity checks on `content.js`: unique ids, quests in real regions with a story beat at every mastery rank, band requirements reachable at each quest's level, 3 weapons / 3 armors / 3 relics per region, every boss drops a real unique and collection piece and has a legend, named-knight boss bonuses point at real bosses, foes get harder and pay more with level, achievements use known checks with reachable targets, and seasonal events have valid dates, real rewards and never overlap.
 
 Run them after any balance edit in `content.js`. GitHub Actions also runs them on every push and pull request.
 
@@ -231,10 +289,11 @@ One-time setup: in the repo on GitHub, open **Settings → Pages** and set **Sou
 |------|------|
 | `index.html` | Layout: header (rename / backup / reset dialogs), stats (incl. band), tab bar + ticker, then one tagged `data-panel` section per tab: quests + region tabs, Lists + Chapel, bosses, knight band, holdings, inventory, collections, shop, renown, chronicle + legends. Loads `formulas.js`, `content.js`, then `game.js`. |
 | `styles.css` | Dark parchment / stone theme |
-| `content.js` | **Content tables** (pure data, tune balance here): `REGIONS` / `QUESTS` / `STORY_BEATS` / `BOSS_LEGENDS` / `MASTERY_BONUSES` / `FOES` / `HEALS` / `UPGRADES` / `RANKED_UPGRADES` / `HOLDINGS` / `LOOT` / `COLLECTIONS` / `BOSSES` / `NAMED_KNIGHTS` / `ACHIEVEMENTS`. Exposed as `window.RuinWarsContent`. |
+| `content.js` | **Content tables** (pure data, tune balance here): `REGIONS` / `QUESTS` / `STORY_BEATS` / `BOSS_LEGENDS` / `MASTERY_BONUSES` / `FOES` / `HEALS` / `UPGRADES` / `RANKED_UPGRADES` / `HOLDINGS` / `LOOT` / `COLLECTIONS` / `BOSSES` / `NAMED_KNIGHTS` / `ACHIEVEMENTS` / `EVENTS`. Exposed as `window.RuinWarsContent`. |
 | `formulas.js` | **Pure formulas** with no DOM or game state: `xpForLevel`, `questCooldownMs`, `fightWinChance(attack, power)`, `upsetMultiplier`, `soakDamage(dmg, defense)`, `rankedUpgradeCost(def, rank)`, `bandCap(level)`, `hireCost(recruits)`, `msUntilFull`, `encodeBackup` / `decodeBackup`. Exposed as `window.RuinWarsFormulas`. |
 | `game.js` | Game rules, state, save/load and rendering, built on the two files above |
 | `tests/` | `node --test` suites for the formulas and content (see Tests) |
+| `tools/balance-sim.js` | Simulated player for balance checks (see Balance pass) |
 | `manifest.webmanifest`, `sw.js`, `icons/` | App install and offline play on the hosted site (see Install and offline play) |
 | `.github/workflows/ci.yml` | Tests on every push / PR; deploys `main` to GitHub Pages |
 
@@ -249,17 +308,17 @@ In `game.js`:
 - **Tabs / feedback** — `setTab` / `tabAlerts` / `renderTicker`; `onActionClick` snapshots gold / XP / level / health before each action and `showActionFeedback` floats the difference
 - **Backup** — `F.encodeBackup(savePayload())` / `F.decodeBackup(text)`; `load()` and backup import both go through `applySaveData(data)`
 - **Renown** — `beginNewLegend` keeps `name`, `renown`, `storyUnlocks`; `renownBonuses()` feeds `goldMultiplier` / `xpMultiplier`
-- **`save` / `load`** — `localStorage` key `ruin_wars_save_v4` (`saveVersion: 6`); falls back to legacy `ruin_wars_save_v1` and migrates. Saves happen immediately after actions, at most every ~8s from the tick when something changed, and on `visibilitychange` (hidden) / `pagehide` / `beforeunload`. The last 50 chronicle lines are saved under `log` (optional; older saves load fine without it).
+- **`save` / `load`** — `localStorage` key `ruin_wars_save_v4` (`saveVersion: 8`); falls back to legacy `ruin_wars_save_v1` and migrates. Saves happen immediately after actions, at most every ~8s from the tick when something changed, and on `visibilitychange` (hidden) / `pagehide` / `beforeunload`. The last 50 chronicle lines are saved under `log` (optional; older saves load fine without it).
 - **`window.RuinWars`** — DevTools helpers
 
 ## Save compatibility
 
-v0.7 still saves to `ruin_wars_save_v4`, now with `saveVersion: 6`; older v4 saves load as-is and gain `upgradeRanks: {}` (v0.5) and `renown: 0` (v0.7). If no v4 save exists, the v0.3 save under `ruin_wars_save_v1` is loaded and migrated: missing fields (`region`, `collections`, `collectionsRedeemed`, `bosses`, `band`, plus the older `questCounts`, `storyUnlocks`, `holdings`, `inventory`, `equipped`) get defaults. The legacy key is left untouched, so rolling back to v0.3 still works. Use **Reset** for a clean slate.
+v1.0 still saves to `ruin_wars_save_v4`, now with `saveVersion: 8`; older v4 saves load as-is and gain the fields added since: `upgradeRanks: {}` (v0.5), `renown: 0` (v0.7), `achievements` / `stats` / `daily` (v0.9) and `events: {}` (v1.0). Levels and XP carry over unchanged, so after the v1.0 XP curve an existing knight keeps their level and simply needs more XP for the next one. A save that can't be read is copied to `ruin_wars_save_unreadable` (never overwritten) before the game starts fresh. If no v4 save exists, the v0.3 save under `ruin_wars_save_v1` is loaded and migrated: missing fields (`region`, `collections`, `collectionsRedeemed`, `bosses`, `band`, plus the older `questCounts`, `storyUnlocks`, `holdings`, `inventory`, `equipped`) get defaults. The legacy key is left untouched, so rolling back to v0.3 still works. Use **Reset** for a clean slate.
 
 ## Suggested next features
 
-1. A fourth region beyond the Wastes, with its own quests, foes, boss and collection.
-2. Seasonal events (e.g. a Midsummer tourney with limited-time foes).
+1. A second Renown track for Lyonesse (titles past Pendragon's Champion).
+2. Gear upgrades: spend gold and duplicates to raise an item's stats.
 
 ## License
 

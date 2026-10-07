@@ -5,7 +5,8 @@ const assert = require("node:assert/strict");
 const F = require("../formulas.js");
 
 test("xpForLevel grows with every level", () => {
-  assert.equal(F.xpForLevel(1), 63);
+  assert.equal(F.xpForLevel(1), 48);
+  assert.equal(F.xpForLevel(10), 2569);
   for (let lv = 1; lv < 80; lv++) {
     assert.ok(F.xpForLevel(lv + 1) > F.xpForLevel(lv), "level " + lv);
   }
@@ -127,4 +128,23 @@ test("daily gold grows with level and streak, capped at 7 days", () => {
   assert.equal(F.dailyGold(10, 3), 900);
   assert.equal(F.dailyGold(10, 7), F.dailyGold(10, 30));
   assert.equal(F.dailyGold(10, 0), F.dailyGold(10, 1));
+});
+
+test("activeEvent: in range, outside, and across New Year", () => {
+  const events = [
+    { id: "harvest", start: "09-22", end: "10-12" },
+    { id: "yuletide", start: "12-20", end: "01-06" },
+  ];
+  const a = F.activeEvent(events, new Date(2026, 9, 7, 12));
+  assert.equal(a.event.id, "harvest");
+  assert.equal(a.key, "harvest-2026");
+  assert.equal(a.endsAt.getTime(), new Date(2026, 9, 12, 23, 59, 59).getTime());
+  assert.equal(F.activeEvent(events, new Date(2026, 9, 13, 0, 1)), null);
+  assert.equal(F.activeEvent(events, new Date(2026, 8, 22, 0, 0)).event.id, "harvest");
+  const dec = F.activeEvent(events, new Date(2026, 11, 31, 20));
+  const jan = F.activeEvent(events, new Date(2027, 0, 6, 9));
+  assert.equal(dec.key, "yuletide-2026");
+  assert.equal(jan.key, "yuletide-2026"); // same event, so tokens carry over New Year
+  assert.equal(jan.endsAt.getTime(), new Date(2027, 0, 6, 23, 59, 59).getTime());
+  assert.equal(F.activeEvent(events, new Date(2027, 0, 7, 0, 0)), null);
 });

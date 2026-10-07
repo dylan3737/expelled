@@ -21,7 +21,7 @@ function assertUniqueIds(list, label) {
 }
 
 test("ids are unique within every table", () => {
-  for (const key of ["REGIONS", "QUESTS", "FOES", "HEALS", "UPGRADES", "RANKED_UPGRADES", "HOLDINGS", "LOOT", "COLLECTIONS", "BOSSES", "NAMED_KNIGHTS", "ACHIEVEMENTS"]) {
+  for (const key of ["REGIONS", "QUESTS", "FOES", "HEALS", "UPGRADES", "RANKED_UPGRADES", "HOLDINGS", "LOOT", "COLLECTIONS", "BOSSES", "NAMED_KNIGHTS", "ACHIEVEMENTS", "EVENTS"]) {
     assertUniqueIds(C[key], key);
   }
   assertUniqueIds(C.COLLECTIONS.flatMap((c) => c.pieces), "collection pieces");
@@ -132,7 +132,7 @@ test("holdings belong to known regions", () => {
 });
 
 test("achievements use known checks with sensible targets", () => {
-  const types = ["questsDone", "questsMastered", "level", "fightWins", "upsets", "bossKill", "band", "namedKnights", "holdings", "collections", "trainingRanks", "renown", "dailyStreak"];
+  const types = ["questsDone", "questsMastered", "level", "fightWins", "upsets", "bossKill", "band", "namedKnights", "holdings", "collections", "trainingRanks", "renown", "dailyStreak", "eventRewards"];
   const allowAll = ["questsMastered", "namedKnights", "holdings", "collections"];
   C.ACHIEVEMENTS.forEach((a) => {
     assert.ok(a.name && a.desc, a.id + ": needs a name and description");
@@ -156,5 +156,24 @@ test("count-based achievement targets are reachable", () => {
     if (a.check.type === "questsMastered" && t !== "all") assert.ok(t <= maxLevelQuestMastery, a.id);
     if (a.check.type === "collections" && t !== "all") assert.ok(t <= C.COLLECTIONS.length, a.id);
     if (a.check.type === "band") assert.ok(t <= F.bandCap(1000) + C.NAMED_KNIGHTS.length, a.id);
+  });
+});
+
+test("events: valid dates, a real unique reward, and no two at once", () => {
+  const md = /^(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$/;
+  const days = new Map();
+  C.EVENTS.forEach((e) => {
+    assert.ok(md.test(e.start) && md.test(e.end), e.id + ": dates must be MM-DD");
+    const reward = C.LOOT.find((L) => L.id === e.rewardId);
+    assert.ok(reward && reward.unique && reward.weight === 0, e.id + ": rewardId must be a unique item");
+    assert.ok(e.tokenGoal > 0 && e.foeName, e.id + ": needs a champion and a token goal");
+    // Walk a non-leap year day by day and check no day belongs to two events.
+    for (let d = new Date(2027, 0, 1); d.getFullYear() === 2027; d.setDate(d.getDate() + 1)) {
+      const hit = F.activeEvent([e], d);
+      if (!hit) continue;
+      const k = d.getMonth() + "/" + d.getDate();
+      assert.ok(!days.has(k), e.id + " overlaps " + days.get(k) + " on " + k);
+      days.set(k, e.id);
+    }
   });
 });

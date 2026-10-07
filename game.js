@@ -1,5 +1,5 @@
 /**
- * Ruin Wars — core game loop (v0.9). Content tables live in content.js, pure formulas in formulas.js.
+ * Ruin Wars — core game loop (v1.0). Content tables live in content.js, pure formulas in formulas.js.
  * Quests (Energy) across Regions + mastery/story/requirements, The Lists (Stamina/Health, odds-based
  * bouts), Bosses, Knight Band, Holdings (passive gold), Loot/Inventory (region tiers, equip, sell),
  * Collections, shop upgrades + ranked training.
@@ -13,7 +13,7 @@
   const LEGACY_SAVE_KEYS = ["ruin_wars_save_v1"];
   const UNREADABLE_SAVE_KEY = "ruin_wars_save_unreadable"; // copy of a save that failed to load
   const UPSET_ACHIEVEMENT_ODDS = 0.3; // "Against the Odds": win a bout with odds below this
-  const SAVE_VERSION = 7;
+  const SAVE_VERSION = 8;
   const TICK_MS = 1000;
   const BASE_ENERGY_MAX = 25;
   const BASE_STAMINA_MAX = 20;
@@ -85,6 +85,7 @@
     BOSSES,
     NAMED_KNIGHTS,
     ACHIEVEMENTS,
+    EVENTS,
   } = window.RuinWarsContent;
   const xpForLevel = F.xpForLevel;
   const formatCooldown = F.formatCooldown;
@@ -110,6 +111,7 @@
       achievements: {}, // id -> time earned; kept through Renown
       stats: { fightWins: 0, upsets: 0 }, // lifetime counters; kept through Renown
       daily: { lastDay: null, streak: 0 }, // daily tribute; kept through Renown
+      events: {}, // "<event>-<year>" -> { tokens, claimed, cooldownUntil }; kept through Renown
       questCooldownUntil: {},
       fightCooldownUntil: {},
       questCounts: {},
@@ -784,6 +786,8 @@
     if (!state.daily || typeof state.daily !== "object") state.daily = {};
     if (typeof state.daily.lastDay !== "string") state.daily.lastDay = null;
     if (typeof state.daily.streak !== "number") state.daily.streak = 0;
+    // v1.0 fields
+    if (!state.events || typeof state.events !== "object") state.events = {};
     if (!state.questCounts || typeof state.questCounts !== "object") {
       state.questCounts = {};
     }
@@ -842,10 +846,16 @@
           "begin a new legend for Renown (see the Chronicle tab)."
       );
     }
-    if (migratedFrom || oldVersion < SAVE_VERSION) {
+    if (migratedFrom || oldVersion < 7) {
       addLog(
         "Save updated to v0.9 — Achievements (Chronicle tab) and a daily tribute that grows when you " +
           "return each day."
+      );
+    }
+    if (migratedFrom || oldVersion < SAVE_VERSION) {
+      addLog(
+        "Save updated to v1.0 — Lyonesse opens at Level 35, seasonal tourneys come to The Lists, " +
+          "and levels now take longer to earn."
       );
       save();
     }
@@ -1811,6 +1821,7 @@
       achievements: state.achievements,
       stats: state.stats,
       daily: state.daily,
+      events: state.events,
     };
     const finalLevel = state.level;
     state = Object.assign(defaultState(), kept);
@@ -1989,6 +2000,7 @@
     renownBox: document.getElementById("renown-box"),
     toasts: document.getElementById("toasts"),
     dailyBar: document.getElementById("daily-bar"),
+    eventBar: document.getElementById("event-bar"),
     achvList: document.getElementById("achievements-list"),
     achvSummary: document.getElementById("achievements-summary"),
     guide: document.getElementById("guide"),
@@ -2104,6 +2116,8 @@
     "renown-cancel": cancelRenown,
     "renown-confirm": beginNewLegend,
     daily: claimDaily,
+    "event-fight": doEventFight,
+    "event-claim": claimEventReward,
   };
 
   function onActionClick(ev) {
@@ -2376,7 +2390,7 @@
     if (state.level > before.level) return "levelup";
     if (bossKills() > before.bossKills) return "boss";
     if (action === "quest") return dGold > 0 ? "quest" : null;
-    if (action === "fight") {
+    if (action === "fight" || action === "event-fight") {
       if (dGold > 0) return "win";
       return state.health < before.health || state.xp !== before.xp ? "loss" : null;
     }
@@ -2464,6 +2478,9 @@
     });
     const blade = bladeUpgrade();
     alerts.armory = !state.ownedUpgrades[blade.id] && state.gold >= blade.cost;
+    const ev = currentEvent();
+    alerts.lists =
+      !!ev && !state.fallen && ev.progress.cooldownUntil <= Date.now() && state.stamina >= EVENT_FOE_STAMINA;
     alerts.chronicle = state.level >= RENOWN_MIN_LEVEL;
     alerts.bosses =
       !state.fallen &&
@@ -2483,6 +2500,7 @@
     gear: "A collection is complete. Redeem it.",
     bosses: "A boss is ready to strike.",
     armory: "You can afford the Tempered Blade.",
+    lists: "The event champion is ready for you.",
     chronicle: "You can begin a new legend for Renown.",
   };
 
@@ -2671,6 +2689,11 @@
       case "dailyStreak":
         cur = state.daily.streak;
         break;
+      case "eventRewards":
+        cur = Object.keys(state.events).filter(function (k) {
+          return state.events[k].claimed;
+        }).length;
+        break;
     }
     return { cur: Math.min(cur, target), target: target };
   }
@@ -2777,6 +2800,215 @@
     frag.appendChild(text);
     frag.appendChild(btn);
     patchChildren(el.dailyBar, frag);
+  }
+
+  // --- Seasonal events ---
+
+  const EVENT_FOE_STAMINA = 10;
+  const EVENT_FOE_COOLDOWN_MS = 3 * 60 * 1000;
+  const EVENT_FOE_STRENGTH = 1.05; // the champion matches your attack, a little above it (~45% odds)
+
+  /** The running event with this year's progress, or null. */
+  function currentEvent() {
+    const hit = F.activeEvent(EVENTS, new Date());
+    if (!hit) return null;
+    if (!state.events[hit.key]) state.events[hit.key] = { tokens: 0, claimed: false, cooldownUntil: 0 };
+    hit.progress = state.events[hit.key];
+    return hit;
+  }
+
+  /** The event champion, scaled to the player so it's always a fair fight. */
+  function eventFoe(ev) {
+    const lv = state.level;
+    return {
+      id: "event:" + ev.event.id,
+      name: ev.event.foeName,
+      desc: ev.event.foeDesc,
+      stamina: EVENT_FOE_STAMINA,
+      power: Math.max(10, Math.round(attackRating() * EVENT_FOE_STRENGTH)),
+      gold: 20 + lv * 15,
+      xp: 20 + lv * 12,
+      dmgMin: 8 + lv,
+      dmgMax: 16 + lv * 2,
+    };
+  }
+
+  function doEventFight() {
+    const ev = currentEvent();
+    if (!ev) {
+      addLog("No tourney is running today.");
+      render();
+      return;
+    }
+    const foe = eventFoe(ev);
+    const prog = ev.progress;
+    if (state.fallen || state.health <= 0) {
+      addLog("You have fallen. Rest at the Chapel before facing " + foe.name + ".");
+      render();
+      return;
+    }
+    if (state.stamina < foe.stamina) {
+      addLog("Not enough Stamina to challenge " + foe.name + ".");
+      render();
+      return;
+    }
+    if (prog.cooldownUntil > Date.now()) {
+      addLog(foe.name + " is resting — " + formatCooldown(prog.cooldownUntil - Date.now()) + " left.");
+      render();
+      return;
+    }
+    state.stamina -= foe.stamina;
+    prog.cooldownUntil = Date.now() + EVENT_FOE_COOLDOWN_MS;
+    const odds = F.fightWinChance(attackRating(), foe.power);
+    if (Math.random() < odds) {
+      const goldGain = Math.floor(foe.gold * goldMultiplier());
+      const xpGain = Math.floor(foe.xp * xpMultiplier());
+      state.gold += goldGain;
+      state.xp += xpGain;
+      prog.tokens += 1;
+      state.stats.fightWins += 1;
+      addLog(
+        ev.event.name +
+          ": you beat " +
+          foe.name +
+          " (" +
+          Math.round(odds * 100) +
+          "% odds) — +" +
+          goldGain +
+          " gold, +" +
+          xpGain +
+          " XP, +1 token (" +
+          prog.tokens +
+          "/" +
+          ev.event.tokenGoal +
+          ")."
+      );
+    } else {
+      const dmg = soakDamage(randInt(foe.dmgMin, foe.dmgMax));
+      state.health = Math.max(0, state.health - dmg);
+      addLog(ev.event.name + ": " + foe.name + " unhorses you. Took " + dmg + " damage.");
+      if (state.health <= 0) {
+        state.fallen = true;
+        addLog("You have fallen in the tourney. Rest at the Chapel.");
+      }
+    }
+    tryLevelUp();
+    save();
+    render();
+  }
+
+  function claimEventReward() {
+    const ev = currentEvent();
+    if (!ev || ev.progress.claimed || ev.progress.tokens < ev.event.tokenGoal) return;
+    const item = getLootDef(ev.event.rewardId);
+    ev.progress.claimed = true;
+    grantLoot(item);
+    addLog(ev.event.name + ": your tokens win the " + (item ? item.name : "prize") + ". The crowd roars.");
+    save();
+    render();
+  }
+
+  function renderEventBar() {
+    const ev = currentEvent();
+    el.eventBar.hidden = !ev;
+    if (!ev) return;
+    const prog = ev.progress;
+    const goal = ev.event.tokenGoal;
+    const reward = getLootDef(ev.event.rewardId);
+    const ends = ev.endsAt.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+    const frag = document.createDocumentFragment();
+    const text = document.createElement("p");
+    text.setAttribute("data-key", "event-text");
+    text.innerHTML =
+      "<strong>" +
+      escapeHtml(ev.event.name) +
+      "</strong> · until " +
+      escapeHtml(ends) +
+      " · " +
+      (prog.claimed
+        ? "you won the " + escapeHtml(reward ? reward.name : "prize") + " this year"
+        : Math.min(prog.tokens, goal) +
+          " / " +
+          goal +
+          " tokens for the " +
+          escapeHtml(reward ? reward.name : "prize") +
+          (reward ? " (" + escapeHtml(reward.desc.replace(/ \(.*\)$/, "")) + ")" : "")) +
+      '<span class="event-desc">' +
+      escapeHtml(ev.event.desc) +
+      " Beat " +
+      escapeHtml(ev.event.foeName) +
+      " in The Lists.</span>";
+    frag.appendChild(text);
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.setAttribute("data-key", "event-btn");
+    if (!prog.claimed && prog.tokens >= goal) {
+      btn.className = "btn btn-primary";
+      btn.textContent = "Claim reward";
+      actionButton(btn, "event-claim");
+    } else {
+      btn.className = "btn";
+      btn.textContent = "To The Lists";
+      actionButton(btn, "tab", "lists");
+    }
+    frag.appendChild(btn);
+    patchChildren(el.eventBar, frag);
+  }
+
+  /** The event champion's card for The Lists (or nothing outside events). */
+  function eventFoeCard(isFallen) {
+    const ev = currentEvent();
+    if (!ev) return null;
+    const foe = eventFoe(ev);
+    const cdLeft = Math.max(0, ev.progress.cooldownUntil - Date.now());
+    const odds = F.fightWinChance(attackRating(), foe.power);
+    const wrap = document.createDocumentFragment();
+    const head = document.createElement("h3");
+    head.className = "list-region event-head";
+    head.setAttribute("data-key", "foe-region:event");
+    head.textContent = ev.event.name + " · event";
+    wrap.appendChild(head);
+    const card = document.createElement("article");
+    card.className = "card event-card" + (cdLeft ? " cooling" : "") + (isFallen ? " fallen" : "");
+    card.setAttribute("data-key", "foe:" + foe.id);
+    card.innerHTML =
+      '<div class="card-body">' +
+      "<h3>" +
+      escapeHtml(foe.name) +
+      "</h3>" +
+      '<p class="card-meta">' +
+      escapeHtml(foe.desc) +
+      "</p>" +
+      '<p class="card-meta">' +
+      '<span class="cost-stamina">' +
+      foe.stamina +
+      " Stamina</span> · " +
+      '<span class="reward-gold">+' +
+      Math.floor(foe.gold * goldMultiplier()) +
+      " gold</span> · " +
+      '<span class="reward-xp">+' +
+      Math.floor(foe.xp * xpMultiplier()) +
+      " XP</span> · +1 token · " +
+      '<span class="cost-health">dmg ' +
+      foe.dmgMin +
+      "–" +
+      foe.dmgMax +
+      "</span>" +
+      (cdLeft ? ' · <span class="gate">Cooldown ' + formatCooldown(cdLeft) + "</span>" : "") +
+      "</p>" +
+      '<p class="card-meta">' +
+      Math.round(odds * 100) +
+      "% win chance · the champion always matches your strength</p>" +
+      "</div>";
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "btn btn-primary";
+    btn.textContent = isFallen ? "Fallen" : cdLeft ? "Wait " + formatCooldown(cdLeft) : "Challenge";
+    btn.disabled = isFallen || !!cdLeft || state.stamina < foe.stamina;
+    actionButton(btn, "event-fight");
+    card.appendChild(btn);
+    wrap.appendChild(card);
+    return wrap;
   }
 
   // --- How to play ---
@@ -3008,6 +3240,8 @@
       tip.appendChild(go);
       frag.appendChild(tip);
     }
+    const eventCard = eventFoeCard(isFallen);
+    if (eventCard) frag.appendChild(eventCard);
     // Show every foe you can face plus the next one to unlock, grouped under region headings.
     const nextLocked = FOES.filter(function (f) {
       return state.level < f.minLevel;
@@ -3893,6 +4127,7 @@
   function renderLive() {
     renderStatsOnly();
     renderDaily();
+    renderEventBar();
     renderTabAlerts();
     renderTabPanels();
   }
@@ -3956,7 +4191,7 @@
   load();
   if (logLines.length === 0) {
     addLog(
-      "Welcome to Ruin Wars. Quests across three regions, The Lists, Bosses, your Knight Band, Holdings, loot and Collections await."
+      "Welcome to Ruin Wars. Quests across four regions, The Lists, Bosses, your Knight Band, Holdings, loot and Collections await."
     );
   }
   setTab(initialTab());
