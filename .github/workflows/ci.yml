@@ -1,8 +1,7 @@
 name: CI
 
-# Tests run on every push and pull request. Pushes to main that pass are
-# then published to GitHub Pages (Settings → Pages → Source: GitHub Actions).
-# The site is the game files, the app manifest, the service worker and icons.
+# Tests run on every push and pull request. (Publishing to GitHub Pages was
+# removed while the game is private; see "Hosting" in the README to bring it back.)
 
 on:
   push:
@@ -15,7 +14,7 @@ permissions:
 
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+  cancel-in-progress: true
 
 jobs:
   test:
@@ -26,37 +25,3 @@ jobs:
         with:
           node-version: 22
       - run: npm test
-
-  build-site:
-    needs: test
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Collect the game files
-        run: |
-          mkdir _site
-          cp index.html styles.css formulas.js content.js game.js manifest.webmanifest sw.js _site/
-          cp -r icons _site/
-          # A new cache name per release, so installed copies pick up the update.
-          sed -i "s/__BUILD__/${GITHUB_SHA::7}/" _site/sw.js
-          touch _site/.nojekyll
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: _site
-
-  deploy:
-    needs: build-site
-    runs-on: ubuntu-latest
-    permissions:
-      pages: write
-      id-token: write
-    concurrency:
-      group: pages
-      cancel-in-progress: false
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - id: deployment
-        uses: actions/deploy-pages@v4

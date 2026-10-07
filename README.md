@@ -2,7 +2,7 @@
 
 Arthurian / fantasy clicker starter in the spirit of old Facebook *Mafia Wars*: spend **Energy** on quests across **three regions** (with **mastery** + **story**), **Stamina** on arena fights and **boss** strikes, manage **Health**, grow a **knight band**, earn **gold** and **XP**, buy **holdings** for passive income, find **loot** to equip, complete **collections**, level up, and buy permanent shop upgrades. No backend — pure static HTML/CSS/JS with `localStorage` saves.
 
-**Play it:** https://dylan3737.github.io/ruin_wars/ (published from `main` by GitHub Actions once Pages is turned on, see [Hosting](#hosting)).
+**Status:** private, not published. Open `index.html` locally to play (see [How to run locally](#how-to-run-locally)); [Hosting](#hosting) explains how to publish it later.
 
 **Current version: v1.0** — a fourth region (**Lyonesse**, Level 35), **seasonal tourneys**, a balance pass driven by a simulated player (levels now take much longer), and fixes from a code review. v0.9 added a first-visit guide, achievements, a daily tribute, music and an installable app; v0.8 added seven new foes in The Lists, sound effects, and tests + deploys on GitHub Actions; v0.7 brought a gentler start and a longer end: a softer first foe plus a Tempered Blade tip, a third boss (**the Questing Beast**), and **Renown** (prestige). v0.6 made it easier to play: tabs instead of one long page, a save backup you can copy and paste, and clearer feedback (floating gains, a level-up flash, time-until-full on Energy / Stamina / Health). v0.5 deepened the economy (ranked training, region-tiered loot you can sell, odds-based bouts, quest requirements); v0.4 added Regions, Bosses, Knight Band and Collections.
 
@@ -279,9 +279,14 @@ Run them after any balance edit in `content.js`. GitHub Actions also runs them o
 
 ## Hosting
 
-`.github/workflows/ci.yml` runs `npm test` on every push and pull request. When a push to `main` passes, it copies the game files, `manifest.webmanifest`, `sw.js` and `icons/` into a site and deploys it to **GitHub Pages** at https://dylan3737.github.io/ruin_wars/.
+`.github/workflows/ci.yml` runs `npm test` on every push and pull request. The game isn't published while the repo is private.
 
-One-time setup: in the repo on GitHub, open **Settings → Pages** and set **Source** to **GitHub Actions**. Until then the deploy job fails (the tests still run). Saves live in each browser, so a save from another copy of the game (a local file or the Claude artifact) moves over with **Backup → Copy my save / Load pasted save**.
+The game is a static site, ready to host anywhere. To publish it later on **GitHub Pages** (which needs a public repo, or a paid GitHub plan for a private one), add two jobs after `test` in `ci.yml`:
+
+- **build-site** (on pushes to `main` only): copy `index.html styles.css formulas.js content.js game.js manifest.webmanifest sw.js` and `icons/` into `_site/`, run `sed -i "s/__BUILD__/${GITHUB_SHA::7}/" _site/sw.js` so each release gets a fresh offline cache, then `actions/upload-pages-artifact@v3` with `path: _site`.
+- **deploy**: `actions/deploy-pages@v4` with `pages: write` and `id-token: write` permissions and the `github-pages` environment.
+
+Then set **Settings → Pages → Source** to **GitHub Actions**. (This workflow ran for v0.8–v0.9; see the history of `.github/workflows/ci.yml` before v1.0 for the exact jobs.) Installing as an app and offline play only work on such a hosted copy. Saves live in each browser, so a save from another copy of the game (a local file or the Claude artifact) moves over with **Backup → Copy my save / Load pasted save**.
 
 ## Code layout
 
@@ -295,7 +300,7 @@ One-time setup: in the repo on GitHub, open **Settings → Pages** and set **Sou
 | `tests/` | `node --test` suites for the formulas and content (see Tests) |
 | `tools/balance-sim.js` | Simulated player for balance checks (see Balance pass) |
 | `manifest.webmanifest`, `sw.js`, `icons/` | App install and offline play on the hosted site (see Install and offline play) |
-| `.github/workflows/ci.yml` | Tests on every push / PR; deploys `main` to GitHub Pages |
+| `.github/workflows/ci.yml` | Tests on every push / PR |
 
 Both `content.js` and `formulas.js` are plain scripts that also work with `require()`, which is how the tests load them.
 
