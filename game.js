@@ -299,6 +299,12 @@
       });
       if (missing.length) pool = missing;
     }
+    return weightedPick(pool);
+  }
+
+  /** Random entry from a list of { weight } objects, in proportion to weight (null if empty). */
+  function weightedPick(pool) {
+    if (!pool.length) return null;
     const total = pool.reduce(function (sum, p) {
       return sum + p.weight;
     }, 0);
@@ -431,6 +437,13 @@
       }
     }
     return bonus;
+  }
+
+  /** The Tempered Blade: the first purchase the game steers new players to. */
+  function bladeUpgrade() {
+    return UPGRADES.find(function (u) {
+      return u.id === "sword";
+    });
   }
 
   function upgradeRank(id) {
@@ -664,21 +677,15 @@
 
   /** Weighted roll from one region's loot pool (boss uniques never roll randomly). */
   function rollLootDrop(regionId) {
-    const pool = LOOT.filter(function (L) {
-      return L.weight > 0 && L.region === (regionId || "camelot");
-    });
-    const total = pool.reduce(function (s, L) {
-      return s + L.weight;
-    }, 0);
-    let r = Math.random() * total;
-    for (let i = 0; i < pool.length; i++) {
-      r -= pool[i].weight;
-      if (r <= 0) return pool[i];
-    }
-    return pool[pool.length - 1];
+    return weightedPick(
+      LOOT.filter(function (L) {
+        return L.weight > 0 && L.region === (regionId || "camelot");
+      })
+    );
   }
 
   function grantLoot(item) {
+    if (!item) return;
     if (!state.inventory) state.inventory = {};
     state.inventory[item.id] = (state.inventory[item.id] || 0) + 1;
     addLog("Loot: found " + item.name + "!");
@@ -727,7 +734,8 @@
       // Starting fresh would overwrite the unreadable save on the next save(), so keep a copy first.
       console.error("Ruin Wars: the save could not be loaded; a copy was kept under " + UNREADABLE_SAVE_KEY, e);
       try {
-        if (raw) localStorage.setItem(UNREADABLE_SAVE_KEY, raw);
+        // Keep the first unreadable save: a later failure must not replace it.
+        if (raw && !localStorage.getItem(UNREADABLE_SAVE_KEY)) localStorage.setItem(UNREADABLE_SAVE_KEY, raw);
       } catch (e2) {
         // storage unavailable: nothing more we can do
       }
@@ -881,7 +889,10 @@
 
   // --- Game actions ---
 
+  let logSeq = 0; // bumps on every new chronicle line, so repeated text still refreshes the ticker
+
   function addLog(msg) {
+    logSeq += 1;
     logLines.unshift(msg);
     if (logLines.length > LOG_MAX) logLines.length = LOG_MAX;
   }
@@ -2118,11 +2129,20 @@
   let soundOn = false;
   let audioCtx = null;
 
-  function readSoundPref() {
+  /** Per-browser settings (not part of the save). Storage may be blocked, so failures are ignored. */
+  function readPref(key) {
     try {
-      return localStorage.getItem(SOUND_PREF_KEY) === "on";
+      return localStorage.getItem(key);
     } catch (e) {
-      return false;
+      return null;
+    }
+  }
+
+  function writePref(key, value) {
+    try {
+      localStorage.setItem(key, value);
+    } catch (e) {
+      // ignore: the setting still applies for this visit
     }
   }
 
@@ -2133,11 +2153,7 @@
 
   function toggleSound() {
     soundOn = !soundOn;
-    try {
-      localStorage.setItem(SOUND_PREF_KEY, soundOn ? "on" : "off");
-    } catch (e) {
-      // ignore: the toggle still works for this visit
-    }
+    writePref(SOUND_PREF_KEY, soundOn ? "on" : "off");
     renderSoundToggle();
     if (soundOn) playCue("quest");
   }
@@ -2264,14 +2280,6 @@
   let musicNextBar = 0;
   let musicBarIndex = 0;
 
-  function readMusicPref() {
-    try {
-      return localStorage.getItem(MUSIC_PREF_KEY) === "on";
-    } catch (e) {
-      return false;
-    }
-  }
-
   function renderMusicToggle() {
     el.btnMusic.textContent = musicOn ? "Music: on" : "Music: off";
     el.btnMusic.setAttribute("aria-pressed", musicOn ? "true" : "false");
@@ -2279,11 +2287,7 @@
 
   function toggleMusic() {
     musicOn = !musicOn;
-    try {
-      localStorage.setItem(MUSIC_PREF_KEY, musicOn ? "on" : "off");
-    } catch (e) {
-      // ignore: the toggle still works for this visit
-    }
+    writePref(MUSIC_PREF_KEY, musicOn ? "on" : "off");
     renderMusicToggle();
     if (musicOn) startMusic();
     else stopMusic();
@@ -2404,13 +2408,8 @@
   function initialTab() {
     const hash = (location.hash || "").replace("#", "");
     if (TAB_IDS.indexOf(hash) >= 0) return hash;
-    try {
-      const stored = localStorage.getItem(TAB_STORE_KEY);
-      if (TAB_IDS.indexOf(stored) >= 0) return stored;
-    } catch (e) {
-      // storage blocked: fall back to the first tab
-    }
-    return "quests";
+    const stored = readPref(TAB_STORE_KEY);
+    return TAB_IDS.indexOf(stored) >= 0 ? stored : "quests";
   }
 
   function setTab(tabId) {
@@ -2425,11 +2424,8 @@
       btn.setAttribute("aria-selected", on ? "true" : "false");
       btn.tabIndex = on ? 0 : -1;
     });
-    try {
-      localStorage.setItem(TAB_STORE_KEY, tabId);
-    } catch (e) {
-      // ignore
-    }
+    writePref(TAB_STORE_KEY, tabId);
+    renderTabPanels();
     renderTicker();
     // If the new tab's top is hidden under the sticky tab bar, scroll it back into view.
     const barBottom = el.tabBar.getBoundingClientRect().bottom;
@@ -2466,7 +2462,8 @@
     alerts.gear = COLLECTIONS.some(function (set) {
       return collectionComplete(set) && !collectionRedeemed(set.id);
     });
-    alerts.armory = !state.ownedUpgrades.sword && state.gold >= UPGRADES[0].cost;
+    const blade = bladeUpgrade();
+    alerts.armory = !state.ownedUpgrades[blade.id] && state.gold >= blade.cost;
     alerts.chronicle = state.level >= RENOWN_MIN_LEVEL;
     alerts.bosses =
       !state.fallen &&
@@ -2507,14 +2504,16 @@
   // --- Ticker: the latest chronicle lines, shown on every tab but the Chronicle ---
 
   const TICKER_LINES = 3;
-  let tickerTop = null;
+  let tickerSeq = -1;
+  let tickerLines = null;
 
   function renderTicker() {
     if (!el.ticker) return;
     el.ticker.hidden = currentTab === "chronicle" || logLines.length === 0;
-    if (logLines[0] === tickerTop && el.ticker.childNodes.length) return;
-    const isNew = tickerTop !== null;
-    tickerTop = logLines[0];
+    if (logSeq === tickerSeq && logLines === tickerLines) return;
+    const isNew = tickerSeq !== -1 && logLines === tickerLines;
+    tickerSeq = logSeq;
+    tickerLines = logLines;
     el.ticker.textContent = "";
     logLines.slice(0, TICKER_LINES).forEach(function (line, i) {
       const li = document.createElement("li");
@@ -2556,8 +2555,10 @@
     if (dXp > 0) parts.push({ cls: "fx-xp", text: "+" + dXp + " XP" });
     if (dHealth > 0) parts.push({ cls: "fx-heal", text: "+" + dHealth + " HP" });
     if (dHealth < 0) parts.push({ cls: "fx-hurt", text: "−" + -dHealth + " HP" });
-    if (parts.length && target.isConnected) {
-      const rect = target.getBoundingClientRect();
+    if (parts.length) {
+      // The clicked button may have just been hidden (the daily bar closes on Claim): float from Gold instead.
+      let rect = target.isConnected ? target.getBoundingClientRect() : null;
+      if (!rect || (rect.width === 0 && rect.height === 0)) rect = el.gold.getBoundingClientRect();
       const fx = document.createElement("div");
       fx.className = "floater";
       fx.setAttribute("aria-hidden", "true");
@@ -2783,11 +2784,7 @@
   const GUIDE_SEEN_KEY = "ruin_wars_guide_seen"; // per-browser, not part of the save
 
   function guideSeen() {
-    try {
-      return localStorage.getItem(GUIDE_SEEN_KEY) === "1";
-    } catch (e) {
-      return false;
-    }
+    return readPref(GUIDE_SEEN_KEY) === "1";
   }
 
   function toggleGuide() {
@@ -2797,11 +2794,7 @@
 
   function closeGuide() {
     el.guide.hidden = true;
-    try {
-      localStorage.setItem(GUIDE_SEEN_KEY, "1");
-    } catch (e) {
-      // ignore: it shows again next visit
-    }
+    writePref(GUIDE_SEEN_KEY, "1");
   }
 
   function regenHintText(cur, max, intervalMs, accMs) {
@@ -2990,8 +2983,8 @@
   function renderFights() {
     const frag = document.createDocumentFragment();
     const isFallen = state.fallen || state.health <= 0;
-    if (!state.ownedUpgrades.sword) {
-      const blade = UPGRADES[0];
+    const blade = bladeUpgrade();
+    if (!state.ownedUpgrades[blade.id]) {
       const tip = document.createElement("div");
       tip.className = "tip";
       tip.setAttribute("data-key", "tip-blade");
@@ -3003,7 +2996,9 @@
         blade.cost +
         " gold in the Armory) adds +" +
         blade.effect.attackBonus +
-        " attack and +35% gold. Buy it before your first bouts.";
+        " attack and +" +
+        Math.round(blade.effect.goldMult * 100) +
+        "% gold. Buy it before your first bouts.";
       const go = document.createElement("button");
       go.type = "button";
       go.className = "btn";
@@ -3876,41 +3871,35 @@
   }
 
   /** Everything that can change without a player action (timers, regen, accrual). */
-  function renderLive() {
-    renderStatsOnly();
-    renderRegions();
-    renderQuests();
-    renderFights();
-    renderBosses();
-    renderHeals();
-    renderBand();
-    renderHoldings();
-    renderInventory();
-    renderCollections();
-    renderShop();
-    renderRenown();
-    renderDaily();
-    renderTabAlerts();
+  /** Panels on each tab. Hidden tabs aren't rendered; setTab() renders a tab when it's shown. */
+  const TAB_RENDERERS = {
+    quests: [renderRegions, renderQuests],
+    lists: [renderFights, renderHeals],
+    bosses: [renderBosses],
+    band: [renderBand],
+    holdings: [renderHoldings],
+    gear: [renderInventory, renderCollections],
+    armory: [renderShop],
+    chronicle: [renderRenown, renderAchievements, renderLog, renderLegends],
+  };
+
+  function renderTabPanels() {
+    (TAB_RENDERERS[currentTab] || []).forEach(function (fn) {
+      fn();
+    });
   }
 
-  function render() {
+  /** Every tick: the always-visible parts plus the open tab. */
+  function renderLive() {
     renderStatsOnly();
-    renderRegions();
-    renderQuests();
-    renderFights();
-    renderBosses();
-    renderHeals();
-    renderBand();
-    renderHoldings();
-    renderInventory();
-    renderCollections();
-    renderShop();
-    renderRenown();
     renderDaily();
-    renderAchievements();
-    renderLog();
-    renderLegends();
     renderTabAlerts();
+    renderTabPanels();
+  }
+
+  /** After an action: everything renderLive() does, plus the ticker. */
+  function render() {
+    renderLive();
     renderTicker();
   }
 
@@ -3953,14 +3942,14 @@
       startMusic();
     }
   });
-  // Browsers only start audio after the player interacts, so music saved as "on" waits for a first tap.
-  document.addEventListener(
-    "pointerdown",
-    function () {
-      if (musicOn && !musicTimer) startMusic();
-    },
-    { once: true }
-  );
+  // Browsers only start audio inside a user gesture (a click or key press, not a touch's pointerdown).
+  // Resume on every gesture until it's running, so music saved as "on" starts at the first tap.
+  function unlockAudio() {
+    if (audioCtx && audioCtx.state === "suspended") audioCtx.resume();
+    if (musicOn && !musicTimer) startMusic();
+  }
+  document.addEventListener("click", unlockAudio, true);
+  document.addEventListener("keydown", unlockAudio, true);
   window.addEventListener("pagehide", save);
   window.addEventListener("beforeunload", save);
 
@@ -3971,9 +3960,9 @@
     );
   }
   setTab(initialTab());
-  soundOn = readSoundPref();
+  soundOn = readPref(SOUND_PREF_KEY) === "on";
   renderSoundToggle();
-  musicOn = readMusicPref();
+  musicOn = readPref(MUSIC_PREF_KEY) === "on";
   renderMusicToggle();
   checkAchievements(); // credits deeds done before achievements existed
   if (!guideSeen() && state.level <= 3) el.guide.hidden = false;

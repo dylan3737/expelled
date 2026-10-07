@@ -39,7 +39,8 @@ self.addEventListener("fetch", (event) => {
       .then((res) => {
         if (res.ok) {
           const copy = res.clone();
-          caches.open(CACHE).then((cache) => cache.put(req, copy));
+          // Keep the worker alive until the offline copy is written.
+          event.waitUntil(caches.open(CACHE).then((cache) => cache.put(req, copy)));
         }
         return res;
       })
