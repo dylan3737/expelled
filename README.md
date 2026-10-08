@@ -1,10 +1,10 @@
 # Ruin Wars
 
-Arthurian / fantasy clicker starter in the spirit of old Facebook *Mafia Wars*: spend **Energy** on quests across **three regions** (with **mastery** + **story**), **Stamina** on arena fights and **boss** strikes, manage **Health**, grow a **knight band**, earn **gold** and **XP**, buy **holdings** for passive income, find **loot** to equip, complete **collections**, level up, and buy permanent shop upgrades. No backend — pure static HTML/CSS/JS with `localStorage` saves.
+The rise of a dark magician, in the spirit of old Facebook *Mafia Wars*. Cast out of the White College, you scheme your way up from the gutters of Hollowmere: spend **Mana** on schemes across **four regions** (with **mastery** and **secrets**), **Will** on duels and **nemeses**, manage **Health**, bind **thralls**, earn **gold** and **XP**, buy **lairs** for passive income, hoard **loot**, bind **grimoires**, and be reborn for **Infamy**. No backend: pure static HTML/CSS/JS with `localStorage` saves.
 
 **Status:** private, not published. Open `index.html` locally to play (see [How to run locally](#how-to-run-locally)); [Hosting](#hosting) explains how to publish it later.
 
-**Current version: v1.0** — a fourth region (**Lyonesse**, Level 35), **seasonal tourneys**, a balance pass driven by a simulated player (levels now take much longer), and fixes from a code review. v0.9 added a first-visit guide, achievements, a daily tribute, music and an installable app; v0.8 added seven new foes in The Lists, sound effects, and tests + deploys on GitHub Actions; v0.7 brought a gentler start and a longer end: a softer first foe plus a Tempered Blade tip, a third boss (**the Questing Beast**), and **Renown** (prestige). v0.6 made it easier to play: tabs instead of one long page, a save backup you can copy and paste, and clearer feedback (floating gains, a level-up flash, time-until-full on Energy / Stamina / Health). v0.5 deepened the economy (ranked training, region-tiered loot you can sell, odds-based bouts, quest requirements); v0.4 added Regions, Bosses, Knight Band and Collections.
+**Current version: v2.0** — the game is rethemed from Arthurian legend to **the adventures of a dark magician** (see [v2.0](#v20--the-dark-magician)); mechanics, numbers and saves are unchanged. v1.0 added a fourth region (Lyonesse, now the Drowned Archive, Level 35), seasonal tourneys (now festivals), a balance pass driven by a simulated player (levels now take much longer), and fixes from a code review. v0.9 added a first-visit guide, achievements, a daily tribute, music and an installable app; v0.8 added seven new foes in The Lists, sound effects, and tests + deploys on GitHub Actions; v0.7 brought a gentler start and a longer end: a softer first foe plus a Tempered Blade tip, a third boss (**the Questing Beast**), and **Renown** (prestige). v0.6 made it easier to play: tabs instead of one long page, a save backup you can copy and paste, and clearer feedback (floating gains, a level-up flash, time-until-full on Energy / Stamina / Health). v0.5 deepened the economy (ranked training, region-tiered loot you can sell, odds-based bouts, quest requirements); v0.4 added Regions, Bosses, Knight Band and Collections.
 
 ## Resources
 
@@ -20,6 +20,48 @@ Arthurian / fantasy clicker starter in the spirit of old Facebook *Mafia Wars*: 
 - Energy regenerates about every **12s**; Stamina about every **18s** (slower, more Mafia Wars–like).
 - Quest cooldowns are **short on early jobs**, **long on late jobs** (up to a few minutes).
 - Fight opponent cooldowns are longer too.
+
+## v2.0 — The Dark Magician
+
+A full retheme. You are a magician expelled from the White College, rising from the canal city of **Hollowmere** through **the Witchwood** and **the Ashen Wastes** to **the Drowned Archive**, the sunken library of the first sorcerers. Every scheme, rival, nemesis, item, grimoire page, lair, achievement and festival has new names and descriptions, and all 72 mastery secrets and 4 nemesis legends are new writing.
+
+- **Look:** witchfire violet on ink-black, with gold kept for coin and cold blue for Mana; headings in IM Fell English (Google Fonts, falling back to Georgia offline); a new watching-eye sigil for the app icon.
+- **Music:** the loop moves from D dorian to D harmonic minor (Dm – B♭ – Gm – A).
+- **Saves carry over.** Ids are unchanged (see the note at the top of `content.js`), so levels, items, thralls, lairs, achievements and festival progress all keep working. Secrets unlocked under the old theme are shown with their new text, looked up by id. Old saves get one chronicle line explaining the retelling. `saveVersion` is 9.
+
+The version notes below were written for the Arthurian theme. This table maps their names to the current ones (internal ids in brackets):
+
+| Old (v0.3–v1.0) | Now |
+|-----------------|-----|
+| Knight | Magician |
+| Energy / Stamina | Mana / Will |
+| Quests, quest board | Schemes |
+| The Lists, bouts | The Dueling Circle (Duels tab), duels |
+| Chapel Rest: Small Poultice / Full Rest | The Apothecary: Bitter Tonic / Sleep in the Crypt |
+| Bosses | Nemeses |
+| Knight Band, sworn knights, Muster Horn | Thralls, enthralled servants, Raise the Dead |
+| Named knights: Sir Gawain / Sir Percival / Sir Lancelot | Lieutenants: Grimalkin / Sister Vell / Sir Ormund, the Lich-Knight |
+| Holdings | Lairs |
+| Gear / Inventory; weapon / armor / relic | Hoard; focus / vestments / talisman |
+| Collections, pieces, Redeem | Grimoires, pages, Bind |
+| Armory & Relics; Training | The Sanctum; Studies |
+| Tempered Blade / Cloak of Rest / Banner of Valor | Blackthorn Wand / Moonstone Ring / Forbidden Primer |
+| Whetstone / Shield-Wall Drills, Steward's Ledger, Scholar's Tomes, Provisioner's Wagon | Hexcraft / Warding Drills, Cutpurse Familiar, Midnight Study, Deepen the Mana Well |
+| Renown, begin a new legend; Legends | Infamy, be reborn; Secrets |
+| Mastery: Unproven / Proven / Veteran / Master | Untried / Practiced / Adept / Master |
+| Daily tribute | Nightly tithe |
+| Seasonal tourneys, tokens | Festivals, favors |
+| Camelot (`camelot`) | Hollowmere |
+| Avalon (`avalon`) | The Witchwood |
+| The Wastes (`wastes`) | The Ashen Wastes |
+| Lyonesse (`lyonesse`) | The Drowned Archive |
+| The Green Knight (`green_knight`) | The Witch-Hunter General |
+| Mordred (`mordred`), Clarent | The Lich of Ashvault, Staff of Ashvault |
+| The Questing Beast (`questing_beast`) | The Bone Wyrm |
+| The Drowned King (`drowned_king`), Bell of Lyonesse | The Drowned Archmage, The First Grimoire |
+| Beltane Fires / Midsummer Tourney / Harvest Tourney / The Wild Hunt / Yuletide Game | Walpurgis Night / Midsummer Eclipse / Harvest Moon / All Hallows' Eve / The Longest Night |
+
+Every quest, foe, item and achievement name is in `content.js`, next to its id.
 
 ## v1.0
 
@@ -313,17 +355,18 @@ In `game.js`:
 - **Tabs / feedback** — `setTab` / `tabAlerts` / `renderTicker`; `onActionClick` snapshots gold / XP / level / health before each action and `showActionFeedback` floats the difference
 - **Backup** — `F.encodeBackup(savePayload())` / `F.decodeBackup(text)`; `load()` and backup import both go through `applySaveData(data)`
 - **Renown** — `beginNewLegend` keeps `name`, `renown`, `storyUnlocks`; `renownBonuses()` feeds `goldMultiplier` / `xpMultiplier`
-- **`save` / `load`** — `localStorage` key `ruin_wars_save_v4` (`saveVersion: 8`); falls back to legacy `ruin_wars_save_v1` and migrates. Saves happen immediately after actions, at most every ~8s from the tick when something changed, and on `visibilitychange` (hidden) / `pagehide` / `beforeunload`. The last 50 chronicle lines are saved under `log` (optional; older saves load fine without it).
+- **`save` / `load`** — `localStorage` key `ruin_wars_save_v4` (`saveVersion: 9`); falls back to legacy `ruin_wars_save_v1` and migrates. Saves happen immediately after actions, at most every ~8s from the tick when something changed, and on `visibilitychange` (hidden) / `pagehide` / `beforeunload`. The last 50 chronicle lines are saved under `log` (optional; older saves load fine without it).
 - **`window.RuinWars`** — DevTools helpers
 
 ## Save compatibility
 
-v1.0 still saves to `ruin_wars_save_v4`, now with `saveVersion: 8`; older v4 saves load as-is and gain the fields added since: `upgradeRanks: {}` (v0.5), `renown: 0` (v0.7), `achievements` / `stats` / `daily` (v0.9) and `events: {}` (v1.0). Levels and XP carry over unchanged, so after the v1.0 XP curve an existing knight keeps their level and simply needs more XP for the next one. A save that can't be read is copied to `ruin_wars_save_unreadable` (never overwritten) before the game starts fresh. If no v4 save exists, the v0.3 save under `ruin_wars_save_v1` is loaded and migrated: missing fields (`region`, `collections`, `collectionsRedeemed`, `bosses`, `band`, plus the older `questCounts`, `storyUnlocks`, `holdings`, `inventory`, `equipped`) get defaults. The legacy key is left untouched, so rolling back to v0.3 still works. Use **Reset** for a clean slate.
+v2.0 still saves to `ruin_wars_save_v4`, now with `saveVersion: 9` (the retheme added no fields); older v4 saves load as-is and gain the fields added since: `upgradeRanks: {}` (v0.5), `renown: 0` (v0.7), `achievements` / `stats` / `daily` (v0.9) and `events: {}` (v1.0). Levels and XP carry over unchanged, so after the v1.0 XP curve an existing knight keeps their level and simply needs more XP for the next one. A save that can't be read is copied to `ruin_wars_save_unreadable` (never overwritten) before the game starts fresh. If no v4 save exists, the v0.3 save under `ruin_wars_save_v1` is loaded and migrated: missing fields (`region`, `collections`, `collectionsRedeemed`, `bosses`, `band`, plus the older `questCounts`, `storyUnlocks`, `holdings`, `inventory`, `equipped`) get defaults. The legacy key is left untouched, so rolling back to v0.3 still works. Use **Reset** for a clean slate.
 
 ## Suggested next features
 
 1. A second Renown track for Lyonesse (titles past Pendragon's Champion).
 2. Gear upgrades: spend gold and duplicates to raise an item's stats.
+3. A fifth region beyond the Drowned Archive, and a nemesis for the White College itself.
 
 ## License
 

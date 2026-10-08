@@ -1,5 +1,5 @@
 /**
- * Ruin Wars — core game loop (v1.0). Content tables live in content.js, pure formulas in formulas.js.
+ * Ruin Wars — the rise of a dark magician (v2.0). Content tables live in content.js, pure formulas in formulas.js.
  * Quests (Energy) across Regions + mastery/story/requirements, The Lists (Stamina/Health, odds-based
  * bouts), Bosses, Knight Band, Holdings (passive gold), Loot/Inventory (region tiers, equip, sell),
  * Collections, shop upgrades + ranked training.
@@ -13,7 +13,7 @@
   const LEGACY_SAVE_KEYS = ["ruin_wars_save_v1"];
   const UNREADABLE_SAVE_KEY = "ruin_wars_save_unreadable"; // copy of a save that failed to load
   const UPSET_ACHIEVEMENT_ODDS = 0.3; // "Against the Odds": win a bout with odds below this
-  const SAVE_VERSION = 8;
+  const SAVE_VERSION = 9;
   const TICK_MS = 1000;
   const BASE_ENERGY_MAX = 25;
   const BASE_STAMINA_MAX = 20;
@@ -28,16 +28,16 @@
   const RENOWN_MIN_LEVEL = 30; // level needed to begin a new legend (prestige)
   const RENOWN_GOLD_PER_RANK = 0.1;
   const RENOWN_XP_PER_RANK = 0.1;
-  /** Title for renown rank 1, 2, … (the last one repeats for higher ranks). */
+  /** Infamy title for rank 1, 2, … (the last one repeats for higher ranks). */
   const RENOWN_TITLES = [
-    "Errant Knight",
-    "Knight of the Round Table",
-    "Knight of the Grail",
-    "Peer of Logres",
-    "Pendragon's Champion",
+    "Whispered Name",
+    "Dread Sorcerer",
+    "Lord of Shadows",
+    "Archmage of the Black Spire",
+    "The Unending",
   ];
   const MASTERY_THRESHOLDS = [5, 15, 40];
-  const MASTERY_RANKS = ["Unproven", "Proven", "Veteran", "Master"];
+  const MASTERY_RANKS = ["Untried", "Practiced", "Adept", "Master"];
   const HOLDING_CAP_CYCLES = 2;
   const COLLECTION_DROP_QUEST = 0.15;
   const COLLECTION_DROP_FIGHT = 0.1;
@@ -65,6 +65,9 @@
   function randInt(min, max) {
     return min + Math.floor(Math.random() * (max - min + 1));
   }
+
+  /** What players call each equipment slot. */
+  const SLOT_LABELS = { weapon: "focus", armor: "vestments", relic: "talisman" };
 
   // --- Content tables (content.js) and pure formulas (formulas.js) ---
 
@@ -94,7 +97,7 @@
 
   function defaultState() {
     return {
-      name: "Knight",
+      name: "Magician",
       level: 1,
       xp: 0,
       gold: 0,
@@ -323,7 +326,7 @@
     state.collections[piece.id] = (state.collections[piece.id] || 0) + 1;
     const n = state.collections[piece.id];
     addLog(
-      "Collection: found " +
+      "Grimoire page found: " +
         piece.name +
         " (" +
         set.name +
@@ -331,11 +334,11 @@
         (n > 1 ? " — duplicate ×" + n + "." : "!")
     );
     if (n === 1 && collectionComplete(set) && !collectionRedeemed(set.id)) {
-      addLog(set.name + " is complete! Redeem it in Collections.");
+      addLog(set.name + " is complete! Bind it under Hoard.");
     }
   }
 
-  // --- Knight band ---
+  // --- Thralls (the band) ---
 
   function bandState() {
     if (!state.band || typeof state.band !== "object") {
@@ -535,13 +538,13 @@
     if (!r) return [];
     const out = [];
     if (r.band) {
-      out.push({ label: r.band + " knights in band", met: bandSize() >= r.band });
+      out.push({ label: r.band + " thralls", met: bandSize() >= r.band });
     }
     if (r.weapon) {
-      out.push({ label: "a weapon equipped", met: !!equippedItem("weapon") });
+      out.push({ label: "a focus equipped", met: !!equippedItem("weapon") });
     }
     if (r.armor) {
-      out.push({ label: "armor equipped", met: !!equippedItem("armor") });
+      out.push({ label: "vestments worn", met: !!equippedItem("armor") });
     }
     return out;
   }
@@ -690,7 +693,7 @@
     if (!item) return;
     if (!state.inventory) state.inventory = {};
     state.inventory[item.id] = (state.inventory[item.id] || 0) + 1;
-    addLog("Loot: found " + item.name + "!");
+    addLog("You pocket " + item.name + "!");
   }
 
   // --- Persistence ---
@@ -744,7 +747,7 @@
       state = defaultState();
       logLines = [];
       addLog(
-        "Your save could not be read, so a new knight takes up the quest. The old save was kept; " +
+        "Your save could not be read, so a new apprentice takes up the craft. The old save was kept; " +
           "ask for help recovering it (key " + UNREADABLE_SAVE_KEY + ")."
       );
     }
@@ -829,33 +832,10 @@
     state.health = Math.min(Math.max(0, state.health), state.healthMax);
     clearFallenIfHealed();
     applyOfflineRegen();
-    if (migratedFrom || oldVersion < 4) {
-      addLog(
-        "Save migrated to v0.4 — Regions, Bosses, Knight Band and Collections are now open to you."
-      );
-    }
-    if (migratedFrom || oldVersion < 5) {
-      addLog(
-        "Save updated to v0.5 — ranked training in the Armory, stronger loot in Avalon and the Wastes, " +
-          "selling spare loot, odds-based bouts in The Lists, and band / gear requirements on later quests."
-      );
-    }
-    if (migratedFrom || oldVersion < 6) {
-      addLog(
-        "Save updated to v0.7 — the Questing Beast waits at Level 30, and knights of Level 30 can " +
-          "begin a new legend for Renown (see the Chronicle tab)."
-      );
-    }
-    if (migratedFrom || oldVersion < 7) {
-      addLog(
-        "Save updated to v0.9 — Achievements (Chronicle tab) and a daily tribute that grows when you " +
-          "return each day."
-      );
-    }
     if (migratedFrom || oldVersion < SAVE_VERSION) {
       addLog(
-        "Save updated to v1.0 — Lyonesse opens at Level 35, seasonal tourneys come to The Lists, " +
-          "and levels now take longer to earn."
+        "Your tale has been retold: you are a dark magician, cast out of the White College and rising " +
+          "from the gutters of Hollowmere. Every level, item and deed carries over under its new name."
       );
       save();
     }
@@ -919,9 +899,9 @@
       addLog(
         "You rise to Level " +
           state.level +
-          "! Max Energy " +
+          "! Max Mana " +
           state.energyMax +
-          ", Stamina " +
+          ", Will " +
           state.staminaMax +
           ", Health " +
           state.healthMax +
@@ -929,12 +909,12 @@
       );
       REGIONS.forEach(function (r) {
         if (r.minLevel === state.level) {
-          addLog("New region unlocked: " + r.name + "! Switch regions above the quest board.");
+          addLog("New region unlocked: " + r.name + "! Switch regions above the scheme board.");
         }
       });
       BOSSES.forEach(function (b) {
         if (b.minLevel === state.level) {
-          addLog(b.name + " will now face you. See Bosses.");
+          addLog(b.name + " has learned your name. See Nemeses.");
         }
       });
     }
@@ -961,7 +941,7 @@
       at: Date.now(),
     };
     state.storyUnlocks.push(entry);
-    addLog("Legend unlocked (" + entry.rank + " — " + entry.questName + "). See Legends below.");
+    addLog("Secret learned (" + entry.rank + " — " + entry.questName + "). Read it in the Chronicle.");
   }
 
   function checkMasteryMilestones(questId, newCount) {
@@ -971,8 +951,8 @@
         const rank = MASTERY_RANKS[i + 1];
         const bonus = MASTERY_BONUSES[i + 1];
         const parts = [];
-        if (bonus.goldAdd) parts.push("+" + Math.round(bonus.goldAdd * 100) + "% gold on this quest");
-        if (bonus.xpAdd) parts.push("+" + Math.round(bonus.xpAdd * 100) + "% XP on this quest");
+        if (bonus.goldAdd) parts.push("+" + Math.round(bonus.goldAdd * 100) + "% gold on this scheme");
+        if (bonus.xpAdd) parts.push("+" + Math.round(bonus.xpAdd * 100) + "% XP on this scheme");
         addLog(
           "Mastery: \"" +
             (QUESTS.find(function (q) {
@@ -999,7 +979,7 @@
       return;
     }
     if (state.energy < quest.energy) {
-      addLog("Not enough Energy for \"" + quest.name + "\".");
+      addLog("Not enough Mana for \"" + quest.name + "\".");
       render();
       return;
     }
@@ -1087,19 +1067,19 @@
       return;
     }
     if (state.fallen || state.health <= 0) {
-      addLog("You have fallen. Rest at the Chapel before returning to The Lists.");
+      addLog("You have fallen. Visit the Apothecary before you duel again.");
       render();
       return;
     }
     if (state.stamina < foe.stamina) {
-      addLog("Not enough Stamina to challenge " + foe.name + ".");
+      addLog("Not enough Will to challenge " + foe.name + ".");
       render();
       return;
     }
     const cdLeft = fightCooldownRemaining(foe.id);
     if (cdLeft > 0) {
       addLog(
-        foe.name + " is not yet ready for another bout — " + formatCooldown(cdLeft) + " left."
+        foe.name + " is not yet ready for another duel — " + formatCooldown(cdLeft) + " left."
       );
       render();
       return;
@@ -1142,7 +1122,7 @@
       if (state.health <= 0) {
         state.fallen = true;
         state.health = 0;
-        addLog("The bout left you fallen. Seek the Chapel.");
+        addLog("The duel left you fallen. Seek the Apothecary.");
       }
       // Small fight loot chance
       if (Math.random() < LOOT_DROP_FIGHT) {
@@ -1175,7 +1155,7 @@
       if (state.health <= 0) {
         state.fallen = true;
         state.health = 0;
-        addLog("You have fallen on the Field of Honor. Rest at the Chapel to rise again.");
+        addLog("You have fallen in the Circle. Visit the Apothecary to rise again.");
       }
       tryLevelUp();
     }
@@ -1194,7 +1174,7 @@
     }
     if (state.region === r.id) return;
     state.region = r.id;
-    addLog("You ride for " + r.name + ".");
+    addLog("You slip away to " + r.name + ".");
     save();
     render();
   }
@@ -1215,12 +1195,12 @@
       return;
     }
     if (state.fallen || state.health <= 0) {
-      addLog("You have fallen. Rest at the Chapel before facing " + def.name + ".");
+      addLog("You have fallen. Visit the Apothecary before facing " + def.name + ".");
       render();
       return;
     }
     if (state.stamina < def.stamina) {
-      addLog("Not enough Stamina to strike " + def.name + ".");
+      addLog("Not enough Will to strike " + def.name + ".");
       render();
       return;
     }
@@ -1269,12 +1249,12 @@
         state.storyUnlocks.push({
           questId: legendId,
           threshold: 0,
-          rank: "Boss Slain",
+          rank: "Nemesis Fallen",
           questName: def.name,
           text: BOSS_LEGENDS[def.id],
           at: Date.now(),
         });
-        addLog("Legend unlocked (Boss Slain — " + def.name + "). See Legends below.");
+        addLog("Secret learned (Nemesis Fallen — " + def.name + "). Read it in the Chronicle.");
       }
       addLog(def.name + " returns in " + def.respawnLabel + ".");
     } else {
@@ -1300,7 +1280,7 @@
       if (state.health <= 0) {
         state.fallen = true;
         state.health = 0;
-        addLog(def.name + " has laid you low. Rest at the Chapel; the wounds you dealt remain.");
+        addLog(def.name + " has laid you low. Visit the Apothecary; the wounds you dealt remain.");
       }
     }
     tryLevelUp();
@@ -1312,28 +1292,28 @@
     const band = bandState();
     const cap = bandCap();
     if (band.recruits >= cap) {
-      addLog("Your band is at its cap (" + cap + "). Gain levels to lead more knights.");
+      addLog("You hold as many thralls as you can (" + cap + "). Gain levels to command more.");
       render();
       return;
     }
     const cost = hireCost();
     if (state.gold < cost) {
-      addLog("Need " + cost + " gold to hire a sworn knight.");
+      addLog("Need " + cost + " gold to enthrall a servant.");
       render();
       return;
     }
     state.gold -= cost;
     band.recruits += 1;
     addLog(
-      "A sworn knight joins your band for " +
+      "A new thrall bends the knee for " +
         cost +
-        " gold. Band " +
+        " gold. Thralls " +
         bandSize() +
         " (" +
         band.recruits +
         "/" +
         cap +
-        " sworn)."
+        " bound)."
     );
     save();
     render();
@@ -1343,20 +1323,20 @@
     const band = bandState();
     const cap = bandCap();
     if (band.recruits >= cap) {
-      addLog("Your band is at its cap (" + cap + "). Gain levels to lead more knights.");
+      addLog("You hold as many thralls as you can (" + cap + "). Gain levels to command more.");
       render();
       return;
     }
     const left = rallyRemaining();
     if (left > 0) {
-      addLog("The muster horn is still echoing — rally again in " + formatCooldown(left) + ".");
+      addLog("The graves are still settling — raise again in " + formatCooldown(left) + ".");
       render();
       return;
     }
     band.recruits += 1;
     band.rallyReadyAt = Date.now() + RALLY_COOLDOWN_MS;
     addLog(
-      "You sound the muster horn; a wandering knight answers freely. Band " + bandSize() + "."
+      "You raise the dead; a restless soul answers freely. Thralls " + bandSize() + "."
     );
     save();
     render();
@@ -1369,23 +1349,23 @@
     if (!k) return;
     const band = bandState();
     if (band.named[k.id]) {
-      addLog(k.name + " already rides with you.");
+      addLog(k.name + " already serves you.");
       render();
       return;
     }
     if (state.level < k.minLevel) {
-      addLog(k.name + " will only follow a Level " + k.minLevel + " knight.");
+      addLog(k.name + " will only serve a Level " + k.minLevel + " magician.");
       render();
       return;
     }
     if (state.gold < k.cost) {
-      addLog("Need " + k.cost + " gold to win " + k.name + " to your banner.");
+      addLog("Need " + k.cost + " gold to win " + k.name + " to your service.");
       render();
       return;
     }
     state.gold -= k.cost;
     band.named[k.id] = true;
-    addLog(k.name + " swears to your banner! (+" + k.attack + " atk, +" + k.defense + " def)");
+    addLog(k.name + " enters your service! (+" + k.attack + " atk, +" + k.defense + " def)");
     save();
     render();
   }
@@ -1445,7 +1425,7 @@
     const gained = state.health - before;
     clearFallenIfHealed();
     addLog(
-      "Chapel: " +
+      "Apothecary: " +
         pack.name +
         " — restored " +
         gained +
@@ -1535,7 +1515,7 @@
     h.level = 0;
     h.accMs = 0;
     h.pending = 0;
-    addLog("Acquired holding: " + def.name + ".");
+    addLog("Acquired lair: " + def.name + ".");
     save();
     render();
   }
@@ -1606,7 +1586,7 @@
       return;
     }
     if (item.slot === "relic") {
-      addLog(item.name + " is a kept relic — its blessing is already active.");
+      addLog(item.name + " is a kept talisman — its power is already active.");
       render();
       return;
     }
@@ -1631,7 +1611,7 @@
     if (sellableCount(item) <= 0) {
       addLog(
         item.slot === "relic"
-          ? "You keep your last " + item.name + " — its blessing would be lost."
+          ? "You keep your last " + item.name + " — its power would be lost."
           : "Unequip " + item.name + " before selling your last one."
       );
       render();
@@ -1810,7 +1790,7 @@
   function beginNewLegend() {
     renownConfirmOpen = false;
     if (state.level < RENOWN_MIN_LEVEL) {
-      addLog("Reach Level " + RENOWN_MIN_LEVEL + " before you begin a new legend.");
+      addLog("Reach Level " + RENOWN_MIN_LEVEL + " before you are reborn.");
       render();
       return;
     }
@@ -1829,11 +1809,11 @@
     addLog(
       "At Level " +
         finalLevel +
-        " you lay down your arms and ride out again as a squire. The bards remember: you are now " +
+        " you pour your power into a phylactery and wake in a new body, an apprentice again. The whispers remember: you are now " +
         state.name +
         ", " +
         renownTitle(state.renown) +
-        " (Renown " +
+        " (Infamy " +
         state.renown +
         ": +" +
         Math.round(renownBonuses().goldMult * 100) +
@@ -1850,7 +1830,7 @@
     closeHeaderDialogs();
     state = defaultState();
     logLines = [];
-    addLog("A new knight takes up the quest.");
+    addLog("A new apprentice takes up the dark arts.");
     save();
     render();
   }
@@ -2280,14 +2260,15 @@
 
   const MUSIC_PREF_KEY = "ruin_wars_music"; // per-browser preference, not part of the save
   const MUSIC_BAR_S = 4.8; // seconds per chord
-  // D dorian: Dm – C – B♭ – C, as [root, fifth, third] in Hz, and the notes the harp may pick.
+  // D harmonic minor: Dm – B♭ – Gm – A (the major A pulls back to Dm with a little menace),
+  // as [root, fifth, third] in Hz, and the notes the harp may pick.
   const MUSIC_CHORDS = [
     [73.42, 110.0, 174.61],
-    [65.41, 98.0, 164.81],
     [58.27, 87.31, 146.83],
-    [65.41, 98.0, 164.81],
+    [49.0, 73.42, 116.54],
+    [55.0, 82.41, 138.59],
   ];
-  const MUSIC_HARP = [293.66, 349.23, 392.0, 440.0, 523.25, 587.33, 698.46];
+  const MUSIC_HARP = [293.66, 349.23, 392.0, 440.0, 466.16, 554.37, 587.33];
   let musicOn = false;
   let musicBus = null;
   let musicTimer = null;
@@ -2495,13 +2476,13 @@
   }
 
   const TAB_ALERT_TITLES = {
-    holdings: "A holding is full. Collect its gold.",
-    band: "The Muster Horn is ready.",
-    gear: "A collection is complete. Redeem it.",
-    bosses: "A boss is ready to strike.",
-    armory: "You can afford the Tempered Blade.",
-    lists: "The event champion is ready for you.",
-    chronicle: "You can begin a new legend for Renown.",
+    holdings: "A lair is full. Collect its gold.",
+    band: "The dead are ready to rise.",
+    gear: "A grimoire is complete. Bind it.",
+    bosses: "A nemesis is ready to strike.",
+    armory: "You can afford the Blackthorn Wand.",
+    lists: "The festival champion is ready for you.",
+    chronicle: "You can be reborn for Infamy.",
   };
 
   function renderTabAlerts() {
@@ -2754,7 +2735,7 @@
   function claimDaily() {
     const streak = dailyAvailable();
     if (streak === null) {
-      addLog("You have already received today's tribute. Return tomorrow.");
+      addLog("Tonight's tithe is already in your coffers. Return tomorrow night.");
       render();
       return;
     }
@@ -2763,12 +2744,12 @@
     state.energy = Math.max(state.energy, state.energyMax);
     state.daily = { lastDay: todayKey(), streak: streak };
     addLog(
-      "Daily tribute, day " +
+      "Nightly tithe, night " +
         streak +
-        ": your tenants send " +
+        ": your cult sends " +
         gold +
-        " gold, and you ride out rested (Energy full)." +
-        (streak < F.DAILY_STREAK_MAX ? " Return tomorrow for more." : "")
+        " gold, and your mana runs full." +
+        (streak < F.DAILY_STREAK_MAX ? " Return tomorrow night for more." : "")
     );
     save();
     render();
@@ -2783,13 +2764,13 @@
     const text = document.createElement("p");
     text.setAttribute("data-key", "daily-text");
     text.innerHTML =
-      "<strong>Daily tribute</strong> · day " +
+      "<strong>Nightly tithe</strong> · night " +
       day +
       " of " +
       F.DAILY_STREAK_MAX +
       ' · <span class="reward-gold">+' +
       F.dailyGold(state.level, streak) +
-      " gold</span> and full Energy" +
+      " gold</span> and full Mana" +
       (streak === 1 && state.daily.streak > 1 ? " · your streak started over" : "");
     const btn = document.createElement("button");
     btn.type = "button";
@@ -2836,19 +2817,19 @@
   function doEventFight() {
     const ev = currentEvent();
     if (!ev) {
-      addLog("No tourney is running today.");
+      addLog("No festival is under way tonight.");
       render();
       return;
     }
     const foe = eventFoe(ev);
     const prog = ev.progress;
     if (state.fallen || state.health <= 0) {
-      addLog("You have fallen. Rest at the Chapel before facing " + foe.name + ".");
+      addLog("You have fallen. Visit the Apothecary before facing " + foe.name + ".");
       render();
       return;
     }
     if (state.stamina < foe.stamina) {
-      addLog("Not enough Stamina to challenge " + foe.name + ".");
+      addLog("Not enough Will to challenge " + foe.name + ".");
       render();
       return;
     }
@@ -2877,7 +2858,7 @@
           goldGain +
           " gold, +" +
           xpGain +
-          " XP, +1 token (" +
+          " XP, +1 favor (" +
           prog.tokens +
           "/" +
           ev.event.tokenGoal +
@@ -2886,10 +2867,10 @@
     } else {
       const dmg = soakDamage(randInt(foe.dmgMin, foe.dmgMax));
       state.health = Math.max(0, state.health - dmg);
-      addLog(ev.event.name + ": " + foe.name + " unhorses you. Took " + dmg + " damage.");
+      addLog(ev.event.name + ": " + foe.name + " overpowers you. Took " + dmg + " damage.");
       if (state.health <= 0) {
         state.fallen = true;
-        addLog("You have fallen in the tourney. Rest at the Chapel.");
+        addLog("You have fallen at the festival. Visit the Apothecary.");
       }
     }
     tryLevelUp();
@@ -2903,7 +2884,7 @@
     const item = getLootDef(ev.event.rewardId);
     ev.progress.claimed = true;
     grantLoot(item);
-    addLog(ev.event.name + ": your tokens win the " + (item ? item.name : "prize") + ". The crowd roars.");
+    addLog(ev.event.name + ": your favors win the " + (item ? item.name : "prize") + ". The night howls.");
     save();
     render();
   }
@@ -2930,14 +2911,14 @@
         : Math.min(prog.tokens, goal) +
           " / " +
           goal +
-          " tokens for the " +
+          " favors for the " +
           escapeHtml(reward ? reward.name : "prize") +
           (reward ? " (" + escapeHtml(reward.desc.replace(/ \(.*\)$/, "")) + ")" : "")) +
       '<span class="event-desc">' +
       escapeHtml(ev.event.desc) +
       " Beat " +
       escapeHtml(ev.event.foeName) +
-      " in The Lists.</span>";
+      " in the Circle.</span>";
     frag.appendChild(text);
     const btn = document.createElement("button");
     btn.type = "button";
@@ -2948,7 +2929,7 @@
       actionButton(btn, "event-claim");
     } else {
       btn.className = "btn";
-      btn.textContent = "To The Lists";
+      btn.textContent = "To the Circle";
       actionButton(btn, "tab", "lists");
     }
     frag.appendChild(btn);
@@ -2966,7 +2947,7 @@
     const head = document.createElement("h3");
     head.className = "list-region event-head";
     head.setAttribute("data-key", "foe-region:event");
-    head.textContent = ev.event.name + " · event";
+    head.textContent = ev.event.name + " · festival";
     wrap.appendChild(head);
     const card = document.createElement("article");
     card.className = "card event-card" + (cdLeft ? " cooling" : "") + (isFallen ? " fallen" : "");
@@ -2982,13 +2963,13 @@
       '<p class="card-meta">' +
       '<span class="cost-stamina">' +
       foe.stamina +
-      " Stamina</span> · " +
+      " Will</span> · " +
       '<span class="reward-gold">+' +
       Math.floor(foe.gold * goldMultiplier()) +
       " gold</span> · " +
       '<span class="reward-xp">+' +
       Math.floor(foe.xp * xpMultiplier()) +
-      " XP</span> · +1 token · " +
+      " XP</span> · +1 favor · " +
       '<span class="cost-health">dmg ' +
       foe.dmgMin +
       "–" +
@@ -3038,7 +3019,7 @@
   function renderStatsOnly() {
     el.name.textContent = state.name;
     const title = renownTitle(renownRank());
-    el.playerTitle.textContent = title ? title + " · Renown " + renownRank() : "";
+    el.playerTitle.textContent = title ? title + " · Infamy " + renownRank() : "";
     el.playerTitle.hidden = !title;
     el.level.textContent = String(state.level);
     const need = xpForLevel(state.level);
@@ -3074,7 +3055,7 @@
     el.healthBar.style.width =
       Math.min(100, (state.health / Math.max(1, state.healthMax)) * 100) + "%";
     if (state.fallen || state.health <= 0) {
-      el.healthRegenHint.textContent = "Fallen — Chapel";
+      el.healthRegenHint.textContent = "Fallen — Apothecary";
     } else {
       el.healthRegenHint.textContent = regenHintText(
         state.health,
@@ -3149,7 +3130,7 @@
         '<p class="card-meta">' +
         '<span class="cost">' +
         q.energy +
-        " Energy</span> · " +
+        " Mana</span> · " +
         '<span class="reward-gold">+' +
         goldShow +
         " gold</span> · " +
@@ -3222,19 +3203,19 @@
       tip.setAttribute("data-key", "tip-blade");
       const text = document.createElement("p");
       text.textContent =
-        "New to the Lists? The " +
+        "New to dueling? The " +
         blade.name +
         " (" +
         blade.cost +
-        " gold in the Armory) adds +" +
+        " gold in the Sanctum) adds +" +
         blade.effect.attackBonus +
         " attack and +" +
         Math.round(blade.effect.goldMult * 100) +
-        "% gold. Buy it before your first bouts.";
+        "% gold. Buy it before your first duels.";
       const go = document.createElement("button");
       go.type = "button";
       go.className = "btn";
-      go.textContent = "Open Armory";
+      go.textContent = "Open Sanctum";
       actionButton(go, "tab", "armory");
       tip.appendChild(text);
       tip.appendChild(go);
@@ -3286,7 +3267,7 @@
         '<p class="card-meta">' +
         '<span class="cost-stamina">' +
         f.stamina +
-        " Stamina</span> · " +
+        " Will</span> · " +
         '<span class="reward-gold">+' +
         Math.floor(f.gold * goldMultiplier()) +
         " gold</span> · " +
@@ -3377,11 +3358,11 @@
         '<p class="card-meta">' +
         '<span class="cost-stamina">' +
         def.stamina +
-        " Stamina / strike</span> · " +
+        " Will / strike</span> · " +
         "~" +
         Math.floor(attackRating() * (1 + bonus)) +
         " dmg" +
-        (bonus ? ' <span class="mastery">(+' + Math.round(bonus * 100) + "% band)</span>" : "") +
+        (bonus ? ' <span class="mastery">(+' + Math.round(bonus * 100) + "% lieutenants)</span>" : "") +
         " · " +
         '<span class="cost-health">counter ' +
         def.dmgMin +
@@ -3397,7 +3378,7 @@
         Math.floor(def.xp * xpMultiplier()) +
         " XP</span> · " +
         escapeHtml(loot ? loot.name : "") +
-        " + a piece of " +
+        " + a page of " +
         escapeHtml(set ? set.name : "") +
         " · returns after " +
         escapeHtml(def.respawnLabel) +
@@ -3430,17 +3411,17 @@
     const bb = bandBonuses();
     patchHtml(
       el.bandSummary,
-      "<strong>Band:</strong> " +
+      "<strong>Thralls:</strong> " +
         bandSize() +
         " (" +
         band.recruits +
         "/" +
         cap +
-        " sworn knights, " +
+        " bound, " +
         namedKnightsOwned().length +
         "/" +
         NAMED_KNIGHTS.length +
-        " named) · <strong>+" +
+        " lieutenants) · <strong>+" +
         bb.attack +
         "</strong> atk · <strong>+" +
         bb.defense +
@@ -3456,8 +3437,8 @@
     hire.className = "card";
     hire.setAttribute("data-key", "band:hire");
     hire.innerHTML =
-      '<div class="card-body"><h3>Hire a Sworn Knight</h3>' +
-      '<p class="card-meta">Each sworn knight adds +' +
+      '<div class="card-body"><h3>Enthrall a Servant</h3>' +
+      '<p class="card-meta">Each thrall adds +' +
       BAND_ATTACK_PER_RECRUIT +
       " attack and +" +
       BAND_DEFENSE_PER_RECRUIT +
@@ -3473,7 +3454,7 @@
     hireBtn.type = "button";
     hireBtn.className = "btn btn-primary";
     hireBtn.id = "btn-hire";
-    hireBtn.textContent = atCap ? "At cap" : "Hire";
+    hireBtn.textContent = atCap ? "At cap" : "Enthrall";
     hireBtn.disabled = atCap || state.gold < hireCost();
     actionButton(hireBtn, "hire");
     hire.appendChild(hireBtn);
@@ -3485,8 +3466,8 @@
     rally.className = "card" + (left > 0 ? " cooling" : "");
     rally.setAttribute("data-key", "band:rally");
     rally.innerHTML =
-      '<div class="card-body"><h3>Sound the Muster Horn</h3>' +
-      '<p class="card-meta">A free recruit every ' +
+      '<div class="card-body"><h3>Raise the Dead</h3>' +
+      '<p class="card-meta">A free thrall every ' +
       formatSeconds(RALLY_COOLDOWN_MS / 1000) +
       ". Counts toward the same cap.</p>" +
       '<p class="card-meta">' +
@@ -3496,7 +3477,7 @@
     rallyBtn.type = "button";
     rallyBtn.className = "btn btn-primary";
     rallyBtn.id = "btn-rally";
-    rallyBtn.textContent = atCap ? "At cap" : left > 0 ? "Wait " + formatCooldown(left) : "Rally";
+    rallyBtn.textContent = atCap ? "At cap" : left > 0 ? "Wait " + formatCooldown(left) : "Raise";
     rallyBtn.disabled = atCap || left > 0;
     actionButton(rallyBtn, "rally");
     rally.appendChild(rallyBtn);
@@ -3512,8 +3493,8 @@
       card.innerHTML =
         '<div class="card-body"><h3>' +
         escapeHtml(k.name) +
-        (owned ? '<span class="badge">Sworn</span>' : "") +
-        '<span class="badge slot-badge">named</span></h3>' +
+        (owned ? '<span class="badge">Bound</span>' : "") +
+        '<span class="badge slot-badge">lieutenant</span></h3>' +
         '<p class="card-meta">' +
         escapeHtml(k.desc) +
         "</p>" +
@@ -3529,10 +3510,10 @@
       btn.type = "button";
       btn.className = "btn btn-primary";
       if (owned) {
-        btn.textContent = "Sworn";
+        btn.textContent = "Bound";
         btn.disabled = true;
       } else {
-        btn.textContent = locked ? "Locked" : "Recruit";
+        btn.textContent = locked ? "Locked" : "Summon";
         btn.disabled = locked || state.gold < k.cost;
         actionButton(btn, "named", k.id);
       }
@@ -3572,7 +3553,7 @@
       card.innerHTML =
         '<div class="card-body"><h3>' +
         escapeHtml(set.name) +
-        (redeemed ? '<span class="badge">Redeemed</span>' : "") +
+        (redeemed ? '<span class="badge">Bound</span>' : "") +
         '<span class="badge slot-badge">' +
         escapeHtml(region ? region.name : set.region) +
         "</span></h3>" +
@@ -3580,7 +3561,7 @@
         have +
         "/" +
         set.pieces.length +
-        ' pieces · bonus: <span class="mastery">' +
+        ' pages · bonus: <span class="mastery">' +
         escapeHtml(set.bonusDesc) +
         "</span></p>" +
         '<ul class="piece-list">' +
@@ -3590,10 +3571,10 @@
       btn.type = "button";
       btn.className = "btn btn-primary";
       if (redeemed) {
-        btn.textContent = "Redeemed";
+        btn.textContent = "Bound";
         btn.disabled = true;
       } else {
-        btn.textContent = complete ? "Redeem" : "Incomplete";
+        btn.textContent = complete ? "Bind" : "Incomplete";
         btn.disabled = !complete;
         actionButton(btn, "redeem", set.id);
       }
@@ -3754,9 +3735,9 @@
     const aName = aId && getLootDef(aId) ? getLootDef(aId).name : "none";
     patchHtml(
       el.equipSummary,
-      "<strong>Weapon:</strong> " +
+      "<strong>Focus:</strong> " +
         escapeHtml(wName) +
-        " · <strong>Armor:</strong> " +
+        " · <strong>Vestments:</strong> " +
         escapeHtml(aName) +
         " · bonuses +" +
         eq.attack +
@@ -3766,7 +3747,7 @@
         Math.round(eq.goldMult * 100) +
         "% gold, +" +
         Math.round(eq.xpMult * 100) +
-        "% XP (incl. relics)"
+        "% XP (incl. talismans)"
     );
 
     const frag = document.createDocumentFragment();
@@ -3802,7 +3783,7 @@
         (count > 1 ? ' <span class="badge">×' + count + "</span>" : "") +
         (isEquipped ? '<span class="badge equip-badge">Equipped</span>' : "") +
         '<span class="badge slot-badge">' +
-        escapeHtml(item.slot) +
+        escapeHtml(SLOT_LABELS[item.slot] || item.slot) +
         "</span>" +
         (item.region
           ? '<span class="badge region-badge">' + escapeHtml(getRegion(item.region).name) + "</span>"
@@ -3864,7 +3845,7 @@
       const empty = document.createElement("p");
       empty.className = "legend-empty";
       empty.textContent =
-        "No loot yet. Complete quests (~22% drop chance) or win fights to find gear; bosses drop uniques.";
+        "Nothing hoarded yet. Schemes (~22% drop chance) and duel wins turn up foci, vestments and talismans; nemeses drop uniques.";
       frag.appendChild(empty);
     }
     patchChildren(el.inventoryList, frag);
@@ -3963,6 +3944,25 @@
     patchChildren(el.log, frag);
   }
 
+  /**
+   * A saved secret as it reads today. Entries store the text from when they were unlocked; looking it
+   * up again by quest / boss id means older saves read in the current theme.
+   */
+  function secretText(entry) {
+    const bossId = String(entry.questId || "").indexOf("boss_") === 0 ? entry.questId.slice(5) : null;
+    if (bossId && BOSS_LEGENDS[bossId]) {
+      const boss = getBoss(bossId);
+      return { rank: "Nemesis Fallen", name: boss ? boss.name : entry.questName, text: BOSS_LEGENDS[bossId] };
+    }
+    const beats = STORY_BEATS[entry.questId];
+    const quest = getQuest(entry.questId);
+    if (beats && beats[entry.threshold] && quest) {
+      const rank = MASTERY_RANKS[MASTERY_THRESHOLDS.indexOf(entry.threshold) + 1] || entry.rank;
+      return { rank: rank, name: quest.name, text: beats[entry.threshold] };
+    }
+    return { rank: entry.rank, name: entry.questName || entry.questId, text: entry.text };
+  }
+
   function renderLegends() {
     if (!el.legendsList) return;
     const frag = document.createDocumentFragment();
@@ -3971,22 +3971,23 @@
       const empty = document.createElement("p");
       empty.className = "legend-empty";
       empty.textContent =
-        "No legends yet. Reach mastery ranks (5 / 15 / 40 completions) on any quest, or slay a boss.";
+        "No secrets yet. Reach mastery ranks (5 / 15 / 40 completions) on any scheme, or defeat a nemesis.";
       frag.appendChild(empty);
       patchChildren(el.legendsList, frag);
       return;
     }
     list.forEach(function (entry) {
+      const s = secretText(entry);
       const card = document.createElement("article");
       card.className = "legend-card";
       card.innerHTML =
         "<h4>" +
-        escapeHtml(entry.rank) +
+        escapeHtml(s.rank) +
         " — " +
-        escapeHtml(entry.questName || entry.questId) +
+        escapeHtml(s.name) +
         "</h4>" +
         "<p>" +
-        escapeHtml(entry.text) +
+        escapeHtml(s.text) +
         "</p>";
       frag.appendChild(card);
     });
@@ -4006,29 +4007,29 @@
     status.innerHTML = rank
       ? "You are <strong>" +
         escapeHtml(renownTitle(rank)) +
-        "</strong> (Renown " +
+        "</strong> (Infamy " +
         rank +
         "): +" +
         Math.round(renownBonuses().goldMult * 100) +
         "% gold, +" +
         Math.round(renownBonuses().xpMult * 100) +
         "% XP on everything."
-      : "You have no Renown yet.";
+      : "You have no Infamy yet.";
     frag.appendChild(status);
 
     const offer = document.createElement("p");
     offer.className = "card-meta";
     offer.setAttribute("data-key", "offer");
     offer.innerHTML =
-      "A new legend makes you <strong>" +
+      "Rebirth makes you <strong>" +
       escapeHtml(renownTitle(next)) +
-      "</strong> (Renown " +
+      "</strong> (Infamy " +
       next +
       ": +" +
       Math.round(next * RENOWN_GOLD_PER_RANK * 100) +
       "% gold, +" +
       Math.round(next * RENOWN_XP_PER_RANK * 100) +
-      "% XP). You keep your name, Renown and Legends; everything else starts over at Level 1." +
+      "% XP). You keep your name, Infamy, Secrets and achievements; everything else starts over at Level 1." +
       (ready ? "" : ' <span class="gate">Requires Level ' + RENOWN_MIN_LEVEL + ".</span>");
     frag.appendChild(offer);
 
@@ -4039,12 +4040,12 @@
       const warn = document.createElement("p");
       warn.className = "renown-warn";
       warn.textContent =
-        "This resets your level, gold, gear, band, holdings, training and collections. It can't be undone.";
+        "This resets your level, gold, hoard, thralls, lairs, studies and grimoires. It can't be undone.";
       row.appendChild(warn);
       const yes = document.createElement("button");
       yes.type = "button";
       yes.className = "btn btn-danger";
-      yes.textContent = "Begin anew at Level 1";
+      yes.textContent = "Be reborn at Level 1";
       actionButton(yes, "renown-confirm");
       const no = document.createElement("button");
       no.type = "button";
@@ -4057,7 +4058,7 @@
       const open = document.createElement("button");
       open.type = "button";
       open.className = "btn btn-primary";
-      open.textContent = "Begin a new legend";
+      open.textContent = "Be reborn";
       open.disabled = !ready;
       actionButton(open, "renown-open");
       row.appendChild(open);
@@ -4191,7 +4192,7 @@
   load();
   if (logLines.length === 0) {
     addLog(
-      "Welcome to Ruin Wars. Quests across four regions, The Lists, Bosses, your Knight Band, Holdings, loot and Collections await."
+      "Cast out of the White College with nothing but a stolen wand, you set up shop in the gutters of Hollowmere. Schemes, duels, nemeses, thralls and lairs await. Ruin is only the beginning."
     );
   }
   setTab(initialTab());

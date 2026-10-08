@@ -1,27 +1,36 @@
-/* Ruin Wars — dark parchment / stone fantasy UI */
+/* Ruin Wars — a dark magician's grimoire: witchfire violet on ink, coin in gold, mana in cold blue.
+   Layout: one narrow column of panels under a sticky tab bar. */
 
 :root {
-  --bg: #1a1612;
-  --bg-panel: #241e18;
-  --bg-card: #2c241c;
-  --border: #4a3c2a;
-  --border-soft: #3a3024;
-  --text: #e8dcc8;
-  --text-dim: #a89880;
-  --gold: #d4a84b;
-  --energy: #6a9e6a;
-  --stamina: #d4893a;
-  --health: #b03040;
-  --xp: #7a8fc4;
-  --accent: #c45c3a;
-  --accent-hover: #e07050;
-  --locked: #5a5040;
-  --danger: #b05050;
-  --mastery: #9a7ab8;
-  --boss: #5f9a4a;
-  --shadow: rgba(0, 0, 0, 0.45);
+  color-scheme: dark;
+  --bg: #110d16; /* ink */
+  --bg-panel: #1a1421;
+  --bg-card: #221a2b;
+  --border: #3d2f4d;
+  --border-soft: #2c2238;
+  --text: #e8e0ef; /* bone, faintly lilac */
+  --text-dim: #a296b0;
+  --rune: #d3b4ff; /* headings */
+  --gold: #d8b25c; /* coin only */
+  --energy: #5fa8d3; /* mana */
+  --stamina: #d9874a; /* will */
+  --health: #c0394f;
+  --xp: #9a8ce0;
+  --accent: #7b3fc4; /* witchfire */
+  --accent-hover: #9a62e0;
+  --locked: #4f4559;
+  --danger: #c0504f;
+  --mastery: #c98ae6;
+  --boss: #57a27c;
+  --good: #6fbf8e; /* met requirements, good odds, healing, success */
+  --shadow: rgba(0, 0, 0, 0.55);
+  --glow: rgba(150, 95, 230, 0.5);
+  --btn: #2a2035;
+  --btn-hover: #3a2c4a;
+  --btn-primary: #3b1f5e;
   --radius: 6px;
   --font: "Segoe UI", Georgia, "Times New Roman", serif;
+  --font-display: "IM Fell English SC", "IM Fell English", Georgia, "Times New Roman", serif;
 }
 
 *,
@@ -40,7 +49,7 @@ body {
   font-family: var(--font);
   color: var(--text);
   background:
-    radial-gradient(ellipse at top, #2a2218 0%, transparent 55%),
+    radial-gradient(ellipse at top, #2b1a3d 0%, transparent 55%),
     var(--bg);
   line-height: 1.45;
 }
@@ -63,10 +72,12 @@ body {
 
 .title-block h1 {
   margin: 0;
-  font-size: 1.85rem;
-  letter-spacing: 0.06em;
-  color: var(--gold);
-  text-shadow: 0 1px 0 #000;
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 2.1rem;
+  letter-spacing: 0.04em;
+  color: var(--rune);
+  text-shadow: 0 0 18px var(--glow), 0 1px 0 #000;
 }
 
 .tagline {
@@ -118,7 +129,7 @@ body {
 
 .dialog-row input:focus,
 .btn:focus-visible {
-  outline: 2px solid var(--gold);
+  outline: 2px solid var(--rune);
   outline-offset: 1px;
 }
 
@@ -141,7 +152,7 @@ body {
   margin: 0;
   min-height: 1.2em;
   font-size: 0.85rem;
-  color: var(--energy);
+  color: var(--good);
 }
 
 .backup-status.error {
@@ -162,7 +173,7 @@ body {
 }
 
 .header-dialog textarea:focus {
-  outline: 2px solid var(--gold);
+  outline: 2px solid var(--rune);
   outline-offset: 1px;
 }
 
@@ -191,7 +202,7 @@ body {
 }
 
 .guide-steps strong {
-  color: var(--gold);
+  color: var(--rune);
 }
 
 .daily-bar {
@@ -409,13 +420,13 @@ body {
 }
 
 .tab.active {
-  color: var(--gold);
+  color: var(--rune);
   background: var(--bg-panel);
   border-color: var(--border);
 }
 
 .tab:focus-visible {
-  outline: 2px solid var(--gold);
+  outline: 2px solid var(--rune);
   outline-offset: 1px;
 }
 
@@ -471,7 +482,7 @@ body {
 
 @keyframes ticker-in {
   from {
-    color: var(--gold);
+    color: var(--rune);
     transform: translateX(-4px);
   }
 }
@@ -509,7 +520,7 @@ body {
 }
 
 .fx-heal {
-  color: var(--energy);
+  color: var(--good);
 }
 
 @keyframes float-up {
@@ -562,8 +573,8 @@ body {
   font-size: 1.25rem;
   font-weight: 700;
   letter-spacing: 0.06em;
-  color: var(--bg);
-  background: var(--gold);
+  color: #fff;
+  background: var(--accent);
   border-radius: var(--radius);
   box-shadow: 0 6px 18px var(--shadow);
   pointer-events: none;
@@ -596,8 +607,8 @@ body {
 
 @keyframes level-flash {
   0% {
-    border-color: var(--gold);
-    box-shadow: 0 0 0 2px var(--gold), 0 0 24px rgba(212, 168, 75, 0.55);
+    border-color: var(--accent-hover);
+    box-shadow: 0 0 0 2px var(--accent-hover), 0 0 24px var(--glow);
   }
   100% {
     border-color: var(--border);
@@ -635,15 +646,18 @@ body {
 
 .panel h2 {
   margin: 0 0 0.35rem;
-  font-size: 1.15rem;
-  color: var(--gold);
-  letter-spacing: 0.04em;
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 1.35rem;
+  color: var(--rune);
+  letter-spacing: 0.03em;
+  text-wrap: balance;
 }
 
 .panel .subhead {
   margin: 1.1rem 0 0.35rem;
   font-size: 1rem;
-  color: var(--gold);
+  color: var(--rune);
   letter-spacing: 0.03em;
   font-weight: 600;
 }
@@ -738,7 +752,7 @@ body {
 }
 
 .card.owned {
-  border-color: var(--energy);
+  border-color: var(--good);
 }
 
 .card.fallen {
@@ -805,7 +819,7 @@ body {
 .btn {
   appearance: none;
   border: 1px solid var(--border);
-  background: #3a3024;
+  background: var(--btn);
   color: var(--text);
   font: inherit;
   font-size: 0.88rem;
@@ -816,8 +830,8 @@ body {
 }
 
 .btn:hover:not(:disabled) {
-  border-color: var(--gold);
-  background: #4a3c2a;
+  border-color: var(--accent-hover);
+  background: var(--btn-hover);
 }
 
 .btn:disabled {
@@ -826,9 +840,9 @@ body {
 }
 
 .btn-primary {
-  background: #4a2e22;
+  background: var(--btn-primary);
   border-color: var(--accent);
-  color: #f0e0d0;
+  color: #efe4ff;
 }
 
 .btn-primary:hover:not(:disabled) {
@@ -838,7 +852,7 @@ body {
 }
 
 .btn-heal {
-  background: #3a2228;
+  background: #3b1d2a;
   border-color: var(--health);
   color: #f0d0d4;
 }
@@ -865,7 +879,7 @@ body {
   font-size: 0.72rem;
   padding: 0.15rem 0.4rem;
   border-radius: 3px;
-  background: #1e3a1e;
+  background: #1b2a3a;
   color: var(--energy);
   margin-left: 0.35rem;
   vertical-align: middle;
@@ -877,22 +891,22 @@ body {
 }
 
 .badge.mastery-badge {
-  background: #2a1e38;
+  background: #2e1d40;
   color: var(--mastery);
 }
 
 .badge.equip-badge {
-  background: #1e2840;
+  background: #1d2240;
   color: var(--xp);
 }
 
 .badge.slot-badge {
-  background: #3a3020;
-  color: var(--gold);
+  background: #352a1c;
+  color: var(--rune);
 }
 
 .badge.region-badge {
-  background: #24302c;
+  background: #232a33;
   color: var(--text-dim);
 }
 
@@ -901,7 +915,7 @@ body {
 }
 
 .card-meta .req-met {
-  color: var(--energy);
+  color: var(--good);
 }
 
 .card-meta .req-unmet {
@@ -909,7 +923,7 @@ body {
 }
 
 .card-meta .odds-good {
-  color: var(--energy);
+  color: var(--good);
 }
 
 .card-meta .odds-even {
@@ -1013,9 +1027,9 @@ body {
 }
 
 .region-tab.active {
-  background: #4a2e22;
-  border-color: var(--gold);
-  color: var(--gold);
+  background: var(--btn-primary);
+  border-color: var(--accent-hover);
+  color: var(--rune);
 }
 
 .region-intro {
@@ -1076,6 +1090,16 @@ body {
   }
 
   .title-block h1 {
-    font-size: 1.5rem;
+    font-size: 1.75rem;
   }
+}
+
+/* --- Display face for small headings that read like book entries --- */
+
+.legend-card h4,
+.achv h4,
+.guide h2 {
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: 0.02em;
 }

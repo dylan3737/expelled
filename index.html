@@ -4,11 +4,14 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Ruin Wars</title>
-  <meta name="description" content="An Arthurian clicker in the spirit of Mafia Wars: quests, duels, bosses and a knight band." />
-  <meta name="theme-color" content="#1a1612" />
+  <meta name="description" content="The rise of a dark magician, in the spirit of Mafia Wars: schemes, duels, nemeses and a host of thralls." />
+  <meta name="theme-color" content="#110d16" />
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="icon" type="image/png" href="icons/icon-192.png" />
   <link rel="apple-touch-icon" href="icons/icon-192.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IM+Fell+English+SC&family=IM+Fell+English:ital@0;1&display=swap" />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
@@ -16,11 +19,11 @@
     <header class="header">
       <div class="title-block">
         <h1>Ruin Wars</h1>
-        <p class="tagline">Quests among the fallen kingdoms</p>
+        <p class="tagline">The rise of a dark magician</p>
       </div>
       <div class="header-actions">
         <button type="button" id="btn-guide" class="btn btn-ghost" title="Show the quick guide">How to play</button>
-        <button type="button" id="btn-rename" class="btn btn-ghost" title="Rename your knight">Rename</button>
+        <button type="button" id="btn-rename" class="btn btn-ghost" title="Rename your magician">Rename</button>
         <button type="button" id="btn-sound" class="btn btn-ghost" aria-pressed="false" title="Turn sound effects on or off">Sound: off</button>
         <button type="button" id="btn-music" class="btn btn-ghost" aria-pressed="false" title="Turn background music on or off">Music: off</button>
         <button type="button" id="btn-backup" class="btn btn-ghost" title="Copy or load your save">Backup</button>
@@ -31,11 +34,11 @@
     <section id="guide" class="panel guide" aria-labelledby="guide-heading" hidden>
       <h2 id="guide-heading">How to play</h2>
       <ol class="guide-steps">
-        <li><strong>Quests</strong> spend Energy for gold and XP. Energy refills by itself (about 1 every 12 seconds). Start with <em>Patrol the Outer Walls</em>.</li>
-        <li><strong>Buy the Tempered Blade</strong> in the Armory as soon as you have 40 gold: +12 attack and +35% gold.</li>
-        <li><strong>The Lists</strong> spend Stamina on duels. Each foe shows your win chance; wins pay gold, XP and loot. If you fall, rest at the Chapel.</li>
-        <li><strong>Grow stronger</strong>: hire knights in your Band, equip loot under Gear, buy Holdings that earn gold while you're away, and train in the Armory.</li>
-        <li><strong>Go further</strong>: Avalon opens at Level 10, the Wastes at 20 and Lyonesse at 35. Bosses start at Level 12, and at Level 30 you can begin a new legend for Renown.</li>
+        <li><strong>Schemes</strong> spend Mana for gold and XP. Mana returns by itself (about 1 every 12 seconds). Start with <em>Read Fortunes in the Gutter</em>.</li>
+        <li><strong>Buy the Blackthorn Wand</strong> in the Sanctum as soon as you have 40 gold: +12 attack and +35% gold.</li>
+        <li><strong>Duels</strong> spend Will. Each rival shows your win chance; wins pay gold, XP and loot. If you fall, visit the Apothecary.</li>
+        <li><strong>Grow stronger</strong>: enthrall servants under Thralls, equip your hoard, buy Lairs that earn gold while you're away, and study in the Sanctum.</li>
+        <li><strong>Go further</strong>: the Witchwood opens at Level 10, the Ashen Wastes at 20 and the Drowned Archive at 35. Nemeses hunt you from Level 12, and at Level 30 you can be reborn for Infamy.</li>
       </ol>
       <p class="panel-intro">A dot on a tab means something there is waiting for you. Your progress saves in this browser; use Backup to move it.</p>
       <div class="dialog-row">
@@ -44,7 +47,7 @@
     </section>
 
     <form id="rename-form" class="header-dialog panel" hidden>
-      <label for="rename-input" class="label">Name your knight</label>
+      <label for="rename-input" class="label">Name your magician</label>
       <div class="dialog-row">
         <input id="rename-input" type="text" maxlength="24" autocomplete="off" required />
         <button type="submit" class="btn btn-primary">Save name</button>
@@ -78,8 +81,8 @@
 
     <section class="stats panel" aria-label="Player stats">
       <div class="stat-name">
-        <span class="label">Knight</span>
-        <strong id="player-name">Knight</strong>
+        <span class="label">Magician</span>
+        <strong id="player-name">Magician</strong>
         <span id="player-title" class="player-title" hidden></span>
       </div>
       <div class="stat">
@@ -96,13 +99,13 @@
         <strong id="stat-gold">0</strong>
       </div>
       <div class="stat">
-        <span class="label">Energy</span>
+        <span class="label">Mana</span>
         <strong><span id="stat-energy">20</span> / <span id="stat-energy-max">20</span></strong>
         <div class="bar" aria-hidden="true"><div id="energy-bar" class="bar-fill energy"></div></div>
         <span class="regen-hint" id="regen-hint">+1 / 5s</span>
       </div>
       <div class="stat">
-        <span class="label">Stamina</span>
+        <span class="label">Will</span>
         <strong><span id="stat-stamina">20</span> / <span id="stat-stamina-max">20</span></strong>
         <div class="bar" aria-hidden="true"><div id="stamina-bar" class="bar-fill stamina"></div></div>
         <span class="regen-hint" id="stamina-regen-hint">+1 / 8s</span>
@@ -114,7 +117,7 @@
         <span class="regen-hint" id="health-regen-hint">+1 / 15s</span>
       </div>
       <div class="stat">
-        <span class="label">Band</span>
+        <span class="label">Thralls</span>
         <strong><span id="stat-band">0</span> / <span id="stat-band-cap">3</span></strong>
         <span class="regen-hint" id="band-hint">Atk 8 · Def 3</span>
       </div>
@@ -125,13 +128,13 @@
 
     <nav class="tabs" aria-label="Game sections">
       <div id="tab-bar" class="tab-bar" role="tablist">
-        <button type="button" class="tab" role="tab" data-tab="quests">Quests<span class="tab-dot" hidden></span></button>
-        <button type="button" class="tab" role="tab" data-tab="lists">Lists<span class="tab-dot" hidden></span></button>
-        <button type="button" class="tab" role="tab" data-tab="bosses">Bosses<span class="tab-dot" hidden></span></button>
-        <button type="button" class="tab" role="tab" data-tab="band">Band<span class="tab-dot" hidden></span></button>
-        <button type="button" class="tab" role="tab" data-tab="holdings">Holdings<span class="tab-dot" hidden></span></button>
-        <button type="button" class="tab" role="tab" data-tab="gear">Gear<span class="tab-dot" hidden></span></button>
-        <button type="button" class="tab" role="tab" data-tab="armory">Armory<span class="tab-dot" hidden></span></button>
+        <button type="button" class="tab" role="tab" data-tab="quests">Schemes<span class="tab-dot" hidden></span></button>
+        <button type="button" class="tab" role="tab" data-tab="lists">Duels<span class="tab-dot" hidden></span></button>
+        <button type="button" class="tab" role="tab" data-tab="bosses">Nemeses<span class="tab-dot" hidden></span></button>
+        <button type="button" class="tab" role="tab" data-tab="band">Thralls<span class="tab-dot" hidden></span></button>
+        <button type="button" class="tab" role="tab" data-tab="holdings">Lairs<span class="tab-dot" hidden></span></button>
+        <button type="button" class="tab" role="tab" data-tab="gear">Hoard<span class="tab-dot" hidden></span></button>
+        <button type="button" class="tab" role="tab" data-tab="armory">Sanctum<span class="tab-dot" hidden></span></button>
         <button type="button" class="tab" role="tab" data-tab="chronicle">Chronicle<span class="tab-dot" hidden></span></button>
       </div>
     </nav>
@@ -140,11 +143,11 @@
 
     <main class="main">
       <section class="panel" aria-labelledby="quests-heading" data-panel="quests" role="tabpanel">
-        <h2 id="quests-heading">Quests</h2>
+        <h2 id="quests-heading">Schemes</h2>
         <p class="panel-intro">
-          Spend Energy on jobs. Earn gold and XP. Mastery ranks unlock at 5 / 15 / 40 completions.
-          Avalon opens at Level 10, the Wastes at 20, Lyonesse at 35. Harder jobs need a large enough band or
-          gear equipped.
+          Spend Mana on schemes for gold and XP. Mastery ranks unlock at 5 / 15 / 40 completions, each with a secret.
+          The Witchwood opens at Level 10, the Ashen Wastes at 20, the Drowned Archive at 35. Darker schemes need
+          enough thralls or the right gear.
         </p>
         <div id="region-tabs" class="region-tabs" role="tablist" aria-label="Regions"></div>
         <p class="panel-intro region-intro" id="region-intro"></p>
@@ -152,76 +155,77 @@
       </section>
 
       <section class="panel" aria-labelledby="lists-heading" data-panel="lists" role="tabpanel">
-        <h2 id="lists-heading">The Lists</h2>
+        <h2 id="lists-heading">The Dueling Circle</h2>
         <p class="panel-intro">
-          Spend Stamina to face rivals on the Field of Honor. Your odds depend on your attack against theirs;
-          beating a stronger foe pays an upset bonus. Wounds cost Health — Rest at the Chapel when fallen.
+          Spend Will to duel rival magicians, hunters and worse. Your odds depend on your power against theirs;
+          beating a stronger rival pays an upset bonus. Wounds cost Health; visit the Apothecary when you fall.
         </p>
         <div id="fight-list" class="card-list"></div>
-        <h3 class="subhead" id="heal-heading">Chapel Rest</h3>
-        <p class="panel-intro">Spend gold to mend wounds. Fights are locked while Health is 0.</p>
+        <h3 class="subhead" id="heal-heading">The Apothecary</h3>
+        <p class="panel-intro">Spend gold to mend wounds. Duels are closed to you while Health is 0.</p>
         <div id="heal-list" class="card-list"></div>
       </section>
 
       <section class="panel" aria-labelledby="bosses-heading" data-panel="bosses" role="tabpanel">
-        <h2 id="bosses-heading">Bosses</h2>
+        <h2 id="bosses-heading">Nemeses</h2>
         <p class="panel-intro">
-          Great foes with vast HP. Each strike costs Stamina; the wounds you deal persist between strikes
-          and heal only slowly. Slay them for great rewards, then wait for their return.
+          Enemies who have learned your name. Each strike costs Will; the wounds you deal last between strikes
+          and heal only slowly. Defeat them for great rewards, then wait for them to rise again.
         </p>
         <div id="boss-list" class="card-list"></div>
       </section>
 
       <section class="panel" aria-labelledby="band-heading" data-panel="band" role="tabpanel">
-        <h2 id="band-heading">Knight Band</h2>
+        <h2 id="band-heading">Thralls</h2>
         <p class="panel-intro">
-          Knights who ride under your banner. Each raises your attack and defense in The Lists and against
-          bosses. How many sworn knights you can lead grows with your level.
+          Servants living and dead who answer to you. Each raises your attack and defense in duels and against
+          nemeses. How many you can bind grows with your level; lieutenants come on top.
         </p>
         <div id="band-summary" class="equip-summary"></div>
         <div id="band-list" class="card-list"></div>
       </section>
 
       <section class="panel" aria-labelledby="holdings-heading" data-panel="holdings" role="tabpanel">
-        <h2 id="holdings-heading">Holdings</h2>
+        <h2 id="holdings-heading">Lairs</h2>
         <p class="panel-intro">
-          Buy lands and towers. They gather gold over real time — Collect before the coffers overflow (2 cycles).
+          Buy hideouts, rackets and dark trades. They gather gold over real time; collect before the coffers
+          overflow (2 cycles).
         </p>
         <div id="holdings-list" class="card-list"></div>
       </section>
 
       <section class="panel" aria-labelledby="inventory-heading" data-panel="gear" role="tabpanel">
-        <h2 id="inventory-heading">Inventory</h2>
+        <h2 id="inventory-heading">Hoard</h2>
         <p class="panel-intro">
-          Loot from quests, fights and bosses — Avalon and the Wastes drop stronger gear. Equip one weapon and
-          one armor; relics grant passive bonuses while kept. Sell spares for gold.
+          Loot from schemes, duels and nemeses; darker regions turn up stronger things. Equip one focus and one
+          set of vestments; talismans work while you keep them. Sell spares for gold.
         </p>
         <div id="equip-summary" class="equip-summary"></div>
         <div id="inventory-list" class="card-list"></div>
       </section>
 
       <section class="panel" aria-labelledby="collections-heading" data-panel="gear" role="tabpanel">
-        <h2 id="collections-heading">Collections</h2>
+        <h2 id="collections-heading">Grimoires</h2>
         <p class="panel-intro">
-          Set pieces drop from quests in each region, from fight wins, and always from bosses. Duplicates are kept.
-          Complete a set to redeem it once for a permanent bonus (uses one of each piece).
+          Lost pages turn up in each region's schemes, in duel wins, and always from nemeses. Duplicates are kept.
+          Gather a full grimoire to bind it once for a permanent bonus (uses one of each page).
         </p>
         <div id="collections-list" class="card-list"></div>
       </section>
 
       <section class="panel" aria-labelledby="shop-heading" data-panel="armory" role="tabpanel">
-        <h2 id="shop-heading">Armory &amp; Relics</h2>
+        <h2 id="shop-heading">The Sanctum</h2>
         <p class="panel-intro">
-          Relics are bought once. Training can be bought rank after rank, each rank costing more.
+          Instruments are bought once. Studies can be pursued rank after rank, each rank costing more.
         </p>
         <div id="shop-list" class="card-list"></div>
       </section>
 
       <section class="panel" aria-labelledby="renown-heading" data-panel="chronicle" role="tabpanel">
-        <h2 id="renown-heading">Renown</h2>
+        <h2 id="renown-heading">Infamy</h2>
         <p class="panel-intro">
-          At Level 30 you may lay down everything and ride out again as a squire. Each new legend raises your
-          Renown, which grants a title and permanent bonus gold and XP.
+          At Level 30 you may pour everything into a phylactery and wake in a new body, an apprentice again.
+          Each rebirth raises your Infamy, which grants a title and permanent bonus gold and XP.
         </p>
         <div id="renown-box" class="renown-box"></div>
       </section>
@@ -229,7 +233,7 @@
       <section class="panel" aria-labelledby="achievements-heading" data-panel="chronicle" role="tabpanel">
         <h2 id="achievements-heading">Achievements</h2>
         <p class="panel-intro">
-          Deeds remembered for good, even through a new legend. Each pays its gold once.
+          Deeds the world will not forget, even through rebirth. Each pays its gold once.
           <span id="achievements-summary" class="achv-summary"></span>
         </p>
         <div id="achievements-list" class="achv-list"></div>
@@ -238,14 +242,14 @@
       <section class="panel log-panel" aria-labelledby="log-heading" data-panel="chronicle" role="tabpanel">
         <h2 id="log-heading">Chronicle</h2>
         <ul id="log" class="log" aria-live="polite"></ul>
-        <h3 class="subhead" id="legends-heading">Legends</h3>
-        <p class="panel-intro">Story beats unlocked by quest mastery and boss kills. Re-read them here.</p>
+        <h3 class="subhead" id="legends-heading">Secrets</h3>
+        <p class="panel-intro">What you have learned through mastered schemes and fallen nemeses. Re-read them here.</p>
         <div id="legends-list" class="legends-list"></div>
       </section>
     </main>
 
     <footer class="footer">
-      <span>Ruin Wars v1.0 — local save in this browser</span>
+      <span>Ruin Wars v2.0 — local save in this browser</span>
     </footer>
   </div>
   <div id="toasts" class="toasts" aria-live="polite"></div>

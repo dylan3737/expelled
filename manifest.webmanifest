@@ -1,16 +1,31 @@
 {
   "name": "Ruin Wars",
   "short_name": "Ruin Wars",
-  "description": "An Arthurian clicker in the spirit of Mafia Wars: quests, duels, bosses and a knight band.",
+  "description": "The rise of a dark magician, in the spirit of Mafia Wars: schemes, duels, nemeses and a host of thralls.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#1a1612",
-  "theme_color": "#1a1612",
+  "background_color": "#110d16",
+  "theme_color": "#110d16",
   "icons": [
-    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
-    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
   ]
 }
