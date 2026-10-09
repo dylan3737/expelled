@@ -4,7 +4,7 @@
  *
  * Usage (serve the game first, e.g. `npx --yes serve -l 8765 .`):
  *   node tools/balance-sim.js http://localhost:8765/ <maxGameHours> <out.json>
- * Env: STOP_LEVEL (default 31); SPELLS=1 lets the bot cast spells. Needs Playwright (a dev dependency).
+ * Env: STOP_LEVEL (default 31); SPELLS=1 casts every ready spell, SPELLS=smart only useful ones. Needs Playwright (a dev dependency).
  *
  * The bot plays nonstop and greedily (buys every upgrade, hires to cap, heals under 60% Health),
  * so its times are a lower bound for an attentive player.
@@ -57,13 +57,18 @@ function botTurn(useSpells) {
     train[0].click();
   }
 
-  // Spells first: every buff that's ready, Blood Mending when hurt, Siphon Will when low on Will.
+  // Spells first. "all": every buff that's ready. "smart": only what pays off right now (economy
+  // buffs; Bone Servant and Scry while a nemesis is up; no Hex). Both heal when hurt and restore Will when low.
   if (useSpells) {
     tab('spells');
     s = st();
+    const nemesisUp = R.BOSSES.some((b) => s.level >= b.minLevel && !(((s.bosses || {})[b.id] || {}).respawnAt > Date.now()));
     const want = (id) => {
       if (id === 'blood_mend') return s.health < s.healthMax * 0.6;
       if (id === 'siphon_will') return s.stamina < s.staminaMax * 0.5;
+      if (useSpells !== 'smart') return true;
+      if (id === 'hex') return false;
+      if (id === 'bone_servant' || id === 'scry') return nemesisUp;
       return true;
     };
     enabled('[data-action=cast]').forEach((b) => { if (want(b.dataset.id)) b.click(); });
@@ -141,7 +146,8 @@ function botTurn(useSpells) {
   const t0 = Date.now();
   for (let step = 0; step * STEP_MS < MAX_H * 3600000; step++) {
     await p.clock.fastForward(STEP_MS);
-    const snap = await p.evaluate(botTurn, process.env.SPELLS === '1');
+    const mode = process.env.SPELLS === 'smart' ? 'smart' : process.env.SPELLS === '1';
+    const snap = await p.evaluate(botTurn, mode);
     const h = +((step + 1) * STEP_MS / 3600000).toFixed(3);
     if (!last || snap.level !== last.level) milestones['level ' + snap.level] = h;
     Object.keys(snap.kills).forEach((k) => { if (snap.kills[k] > 0 && !milestones['kill ' + k]) milestones['kill ' + k] = h; });

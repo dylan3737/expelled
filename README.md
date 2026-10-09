@@ -54,12 +54,12 @@ A **Spells** tab (second tab) holds eight spells, learned by level and cast with
 |-------|-------|------|--------|------------------|
 | **Hex of Misfortune** | 2 | 8 | 1m 30s | +25% power in your next duel (festival duels too) |
 | **Blood Mending** | 4 | 12 | 5m | Restore 30% of your Health |
-| **Quicken the Hours** | 6 | 20 | 15m | For 5m, schemes you start rest 40% shorter |
+| **Quicken the Hours** | 6 | 10 | 15m | For 5m, schemes you start rest 40% shorter |
 | **Bone Servant** | 9 | 18 | 15m | For 10m, +12% attack and defense |
 | **Scry the Nemesis** | 12 | 25 | 20m | +30% damage on your next 5 nemesis strikes |
-| **Gilded Tongue** | 15 | 30 | 30m | For 10m, +25% gold |
+| **Gilded Tongue** | 15 | 25 | 45m | For 30m, +25% gold |
 | **Siphon Will** | 18 | 30 | 20m | Restore 15 Will |
-| **Dark Insight** | 22 | 40 | 30m | For 10m, +25% XP |
+| **Dark Insight** | 22 | 25 | 45m | For 30m, +25% XP |
 
 - **Mastery:** every cast counts. At 10 / 30 / 100 casts a spell becomes Practiced / Adept / Master, and its effect is multiplied by ×1.25 / ×1.5 / ×1.75 (`spellRank` and `spellPotency` in `formulas.js`). Mastery is kept through rebirth; active spells and cooldowns are not.
 - New spells are announced on level-up, and the Spells tab shows a dot while you know a spell you have never cast. Duel cards say **(hexed)** while a Hex is waiting.

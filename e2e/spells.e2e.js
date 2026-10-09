@@ -86,8 +86,8 @@ test("spells grow stronger with mastery, and buffs wear off", async () => {
   await cast(page, "gilded_tongue");
   assert.ok((await log(page)).some((l) => l === "Your Gilded Tongue grows stronger: Practiced (×1.25 potency)."));
   assert.match(await page.textContent('[data-key="spell:gilded_tongue"] .spell-effect'), /\+31% gold/);
-  await page.clock.fastForward(10 * 60 * 1000 + 2000);
-  assert.ok(await page.isHidden("#active-spells"), "the 10-minute buff has ended");
+  await page.clock.fastForward(30 * 60 * 1000 + 2000);
+  assert.ok(await page.isHidden("#active-spells"), "the 30-minute buff has ended");
   assert.equal((await state(page)).spells.active.gilded_tongue, undefined);
   assert.deepEqual(errors, []);
   await ctx.close();
