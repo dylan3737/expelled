@@ -148,3 +148,14 @@ test("activeEvent: in range, outside, and across New Year", () => {
   assert.equal(jan.endsAt.getTime(), new Date(2027, 0, 6, 23, 59, 59).getTime());
   assert.equal(F.activeEvent(events, new Date(2027, 0, 7, 0, 0)), null);
 });
+
+test("spell mastery ranks and potency", () => {
+  assert.equal(F.spellRank(0), 0);
+  assert.equal(F.spellRank(9), 0);
+  assert.equal(F.spellRank(10), 1);
+  assert.equal(F.spellRank(30), 2);
+  assert.equal(F.spellRank(99), 2);
+  assert.equal(F.spellRank(100), 3);
+  assert.equal(F.spellRank(5000), 3);
+  assert.deepEqual([0, 1, 2, 3].map(F.spellPotency), [1, 1.25, 1.5, 1.75]);
+});

@@ -21,7 +21,7 @@ function assertUniqueIds(list, label) {
 }
 
 test("ids are unique within every table", () => {
-  for (const key of ["REGIONS", "QUESTS", "FOES", "HEALS", "UPGRADES", "RANKED_UPGRADES", "HOLDINGS", "LOOT", "COLLECTIONS", "BOSSES", "NAMED_KNIGHTS", "ACHIEVEMENTS", "EVENTS"]) {
+  for (const key of ["REGIONS", "QUESTS", "FOES", "HEALS", "UPGRADES", "RANKED_UPGRADES", "HOLDINGS", "LOOT", "COLLECTIONS", "BOSSES", "NAMED_KNIGHTS", "ACHIEVEMENTS", "EVENTS", "SPELLS"]) {
     assertUniqueIds(C[key], key);
   }
   assertUniqueIds(C.COLLECTIONS.flatMap((c) => c.pieces), "collection pieces");
@@ -132,7 +132,7 @@ test("holdings belong to known regions", () => {
 });
 
 test("achievements use known checks with sensible targets", () => {
-  const types = ["questsDone", "questsMastered", "level", "fightWins", "upsets", "bossKill", "band", "namedKnights", "holdings", "collections", "trainingRanks", "renown", "dailyStreak", "eventRewards"];
+  const types = ["questsDone", "questsMastered", "level", "fightWins", "upsets", "bossKill", "band", "namedKnights", "holdings", "collections", "trainingRanks", "renown", "dailyStreak", "eventRewards", "spellCasts", "spellsMastered"];
   const allowAll = ["questsMastered", "namedKnights", "holdings", "collections"];
   C.ACHIEVEMENTS.forEach((a) => {
     assert.ok(a.name && a.desc, a.id + ": needs a name and description");
@@ -175,5 +175,22 @@ test("events: valid dates, a real unique reward, and no two at once", () => {
       assert.ok(!days.has(k), e.id + " overlaps " + days.get(k) + " on " + k);
       days.set(k, e.id);
     }
+  });
+});
+
+test("spells: known effects, a way to end every buff, sensible costs", () => {
+  const buffEffects = ["duelPower", "cooldownCut", "attackPct", "defensePct", "nemesisDamage", "goldMult", "xpMult"];
+  const instantEffects = ["healPct", "restoreWill"];
+  C.SPELLS.forEach((sp) => {
+    assert.ok(sp.name && sp.desc, sp.id + ": needs a name and description");
+    assert.ok(sp.minLevel >= 1 && sp.mana > 0 && sp.cooldownMs > 0, sp.id + ": level, Mana and cooldown");
+    assert.ok(["buff", "instant"].includes(sp.kind), sp.id + ": kind must be buff or instant");
+    const keys = Object.keys(sp.effect);
+    assert.ok(keys.length > 0, sp.id + ": needs an effect");
+    const allowed = sp.kind === "buff" ? buffEffects : instantEffects;
+    keys.forEach((k) => assert.ok(allowed.includes(k), sp.id + ": " + k + " isn't a " + sp.kind + " effect"));
+    if (sp.kind === "buff") assert.ok(sp.durationMs > 0 || sp.charges > 0, sp.id + ": a buff needs a duration or charges");
+    // At Master potency (×1.75) a cooldown cut must still leave some cooldown.
+    if (sp.effect.cooldownCut) assert.ok(sp.effect.cooldownCut * F.spellPotency(3) < 1, sp.id);
   });
 });

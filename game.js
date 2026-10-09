@@ -1,5 +1,5 @@
 /**
- * Ruin Wars — the rise of a dark magician (v2.0). Content tables live in content.js, pure formulas in formulas.js.
+ * Ruin Wars — the rise of a dark magician (v2.1). Content tables live in content.js, pure formulas in formulas.js.
  * Quests (Energy) across Regions + mastery/story/requirements, The Lists (Stamina/Health, odds-based
  * bouts), Bosses, Knight Band, Holdings (passive gold), Loot/Inventory (region tiers, equip, sell),
  * Collections, shop upgrades + ranked training.
@@ -13,7 +13,7 @@
   const LEGACY_SAVE_KEYS = ["ruin_wars_save_v1"];
   const UNREADABLE_SAVE_KEY = "ruin_wars_save_unreadable"; // copy of a save that failed to load
   const UPSET_ACHIEVEMENT_ODDS = 0.3; // "Against the Odds": win a bout with odds below this
-  const SAVE_VERSION = 9;
+  const SAVE_VERSION = 10;
   const TICK_MS = 1000;
   const BASE_ENERGY_MAX = 25;
   const BASE_STAMINA_MAX = 20;
@@ -89,6 +89,7 @@
     NAMED_KNIGHTS,
     ACHIEVEMENTS,
     EVENTS,
+    SPELLS,
   } = window.RuinWarsContent;
   const xpForLevel = F.xpForLevel;
   const formatCooldown = F.formatCooldown;
@@ -115,6 +116,7 @@
       stats: { fightWins: 0, upsets: 0 }, // lifetime counters; kept through Renown
       daily: { lastDay: null, streak: 0 }, // daily tribute; kept through Renown
       events: {}, // "<event>-<year>" -> { tokens, claimed, cooldownUntil }; kept through Renown
+      spells: { casts: {}, cooldownUntil: {}, active: {} }, // Spellbook; mastery (casts) kept through rebirth
       questCooldownUntil: {},
       fightCooldownUntil: {},
       questCounts: {},
@@ -409,6 +411,7 @@
     m += collectionBonuses().goldMult;
     m += rankedBonuses().goldMult;
     m += renownBonuses().goldMult;
+    m += spellEffects().goldMult;
     if (questId) {
       m += masteryBonusForQuest(questId).goldAdd;
     }
@@ -428,6 +431,7 @@
     m += rankedBonuses().xpMult;
     m += renownBonuses().xpMult;
     m += bandBonuses().xpMult;
+    m += spellEffects().xpMult;
     if (questId) {
       m += masteryBonusForQuest(questId).xpAdd;
     }
@@ -496,38 +500,43 @@
     return Math.max(2500, Math.floor(BASE_REGEN_MS / (1 + bonus)));
   }
 
-  /** Attack rating: level + shop + training + gear + band + collections */
+  /** Attack rating: level + shop + training + gear + band + collections, raised by spells */
   function attackRating() {
     const eq = collectEquipEffects();
-    return (
+    const base =
       state.level * 8 +
       attackBonusFromShop() +
       rankedBonuses().attack +
       eq.attack +
       bandBonuses().attack +
-      collectionBonuses().attack
-    );
+      collectionBonuses().attack;
+    return Math.round(base * (1 + spellEffects().attackPct));
   }
 
   /** Defense rating: soaks a share of fight and boss damage */
   function defenseRating() {
     const eq = collectEquipEffects();
-    return (
+    const base =
       state.level * 3 +
       rankedBonuses().defense +
       eq.defense +
       bandBonuses().defense +
-      collectionBonuses().defense
-    );
+      collectionBonuses().defense;
+    return Math.round(base * (1 + spellEffects().defensePct));
   }
 
   function soakDamage(dmg) {
     return F.soakDamage(dmg, defenseRating());
   }
 
-  /** Chance to win a bout in The Lists against this foe. */
+  /** Attack in a duel: the attack rating, plus any Hex waiting for the next duel. */
+  function duelAttack() {
+    return attackRating() * (1 + spellEffects().duelPower);
+  }
+
+  /** Chance to win a duel against this foe. */
   function fightWinChance(foe) {
-    return F.fightWinChance(attackRating(), foe.power);
+    return F.fightWinChance(duelAttack(), foe.power);
   }
 
   // --- Quest requirements ---
@@ -791,6 +800,11 @@
     if (typeof state.daily.streak !== "number") state.daily.streak = 0;
     // v1.0 fields
     if (!state.events || typeof state.events !== "object") state.events = {};
+    // v2.1 fields
+    if (!state.spells || typeof state.spells !== "object") state.spells = {};
+    ["casts", "cooldownUntil", "active"].forEach(function (k) {
+      if (!state.spells[k] || typeof state.spells[k] !== "object") state.spells[k] = {};
+    });
     if (!state.questCounts || typeof state.questCounts !== "object") {
       state.questCounts = {};
     }
@@ -832,11 +846,14 @@
     state.health = Math.min(Math.max(0, state.health), state.healthMax);
     clearFallenIfHealed();
     applyOfflineRegen();
-    if (migratedFrom || oldVersion < SAVE_VERSION) {
+    if (migratedFrom || oldVersion < 9) {
       addLog(
         "Your tale has been retold: you are a dark magician, cast out of the White College and rising " +
           "from the gutters of Hollowmere. Every level, item and deed carries over under its new name."
       );
+    }
+    if (migratedFrom || oldVersion < SAVE_VERSION) {
+      addLog("New: the Spellbook. Cast spells with Mana from the Spells tab; your level decides which you know.");
       save();
     }
   }
@@ -910,6 +927,11 @@
       REGIONS.forEach(function (r) {
         if (r.minLevel === state.level) {
           addLog("New region unlocked: " + r.name + "! Switch regions above the scheme board.");
+        }
+      });
+      SPELLS.forEach(function (sp) {
+        if (sp.minLevel === state.level) {
+          addLog("You learn a new spell: " + sp.name + ". Find it in the Spellbook.");
         }
       });
       BOSSES.forEach(function (b) {
@@ -1014,7 +1036,8 @@
 
     state.energy -= quest.energy;
     if (!state.questCooldownUntil) state.questCooldownUntil = {};
-    state.questCooldownUntil[quest.id] = Date.now() + F.questCooldownMs(quest);
+    const cut = Math.min(0.75, spellEffects().cooldownCut);
+    state.questCooldownUntil[quest.id] = Date.now() + Math.round(F.questCooldownMs(quest) * (1 - cut));
 
     if (!state.questCounts) state.questCounts = {};
     state.questCounts[quest.id] = (state.questCounts[quest.id] || 0) + 1;
@@ -1092,6 +1115,7 @@
     const odds = fightWinChance(foe);
     const oddsPct = Math.round(odds * 100) + "%";
     const won = Math.random() < odds;
+    useSpellCharge("duelPower");
 
     if (won) {
       const upset = upsetMultiplier(odds);
@@ -1207,7 +1231,9 @@
 
     state.stamina -= def.stamina;
     const roll = 0.85 + Math.random() * 0.3;
-    const dmg = Math.max(1, Math.floor(attackRating() * roll * (1 + bossDamageBonus(def.id))));
+    const dmgMult = 1 + bossDamageBonus(def.id) + spellEffects().nemesisDamage;
+    const dmg = Math.max(1, Math.floor(attackRating() * roll * dmgMult));
+    useSpellCharge("nemesisDamage");
     b.hp = Math.max(0, b.hp - dmg);
     const strikeGold = Math.floor(def.strikeGold * goldMultiplier());
     const strikeXp = Math.floor(def.strikeXp * xpMultiplier());
@@ -1802,6 +1828,7 @@
       stats: state.stats,
       daily: state.daily,
       events: state.events,
+      spells: { casts: state.spells.casts, cooldownUntil: {}, active: {} },
     };
     const finalLevel = state.level;
     state = Object.assign(defaultState(), kept);
@@ -1889,6 +1916,7 @@
 
     accrueAllHoldings(dt);
     accrueAllBosses(dt);
+    pruneSpells();
 
     const sig = saveSignature();
     if (sig !== lastSaveSig) {
@@ -1987,6 +2015,8 @@
     btnGuide: document.getElementById("btn-guide"),
     guideClose: document.getElementById("guide-close"),
     btnMusic: document.getElementById("btn-music"),
+    spellList: document.getElementById("spell-list"),
+    activeSpells: document.getElementById("active-spells"),
     ticker: document.getElementById("ticker"),
   };
 
@@ -2096,6 +2126,7 @@
     "renown-cancel": cancelRenown,
     "renown-confirm": beginNewLegend,
     daily: claimDaily,
+    cast: castSpell,
     "event-fight": doEventFight,
     "event-claim": claimEventReward,
   };
@@ -2109,7 +2140,7 @@
     const before = feedbackSnapshot();
     fn(target.getAttribute("data-id"));
     const earned = checkAchievements();
-    showActionFeedback(target, before);
+    showActionFeedback(target, before, action);
     playCue(earned.length && !(state.level > before.level) ? "achievement" : cueForAction(action, before));
     if (earned.length) {
       save();
@@ -2231,6 +2262,11 @@
       [523, 659, 784, 1047].forEach(function (f, i) {
         tone(ctx, f, i * 0.09, 0.32, "triangle", 0.16);
       });
+    },
+    spell: function (ctx) {
+      tone(ctx, 440, 0, 0.5, "sine", 0.1, 880);
+      tone(ctx, 660, 0.08, 0.5, "triangle", 0.07, 1320);
+      tone(ctx, 1760, 0.25, 0.35, "sine", 0.04);
     },
     achievement: function (ctx) {
       tone(ctx, 784, 0, 0.16, "triangle", 0.14);
@@ -2378,6 +2414,7 @@
     if (action === "boss") return dGold > 0 ? "hit" : null;
     if (action === "heal") return state.health > before.health ? "heal" : null;
     if (action === "rally") return bandSize() > before.band ? "quest" : null;
+    if (action === "cast") return state.energy < before.energy ? "spell" : null;
     if (action === "redeem") return redeemedCount() > before.redeemed ? "quest" : null;
     if (SPEND_ACTIONS.indexOf(action) >= 0) return dGold < 0 ? "spend" : null;
     return dGold > 0 ? "coin" : null;
@@ -2396,7 +2433,7 @@
 
   // --- Tabs ---
 
-  const TAB_IDS = ["quests", "lists", "bosses", "band", "holdings", "gear", "armory", "chronicle"];
+  const TAB_IDS = ["quests", "spells", "lists", "bosses", "band", "holdings", "gear", "armory", "chronicle"];
   const TAB_STORE_KEY = "ruin_wars_tab"; // per-browser convenience, not part of the save
   let currentTab = "quests";
 
@@ -2463,6 +2500,9 @@
     alerts.lists =
       !!ev && !state.fallen && ev.progress.cooldownUntil <= Date.now() && state.stamina >= EVENT_FOE_STAMINA;
     alerts.chronicle = state.level >= RENOWN_MIN_LEVEL;
+    alerts.spells = SPELLS.some(function (sp) {
+      return state.level >= sp.minLevel && spellCasts(sp.id) === 0;
+    });
     alerts.bosses =
       !state.fallen &&
       BOSSES.some(function (def) {
@@ -2483,6 +2523,7 @@
     armory: "You can afford the Blackthorn Wand.",
     lists: "The festival champion is ready for you.",
     chronicle: "You can be reborn for Infamy.",
+    spells: "You know a spell you have never cast.",
   };
 
   function renderTabAlerts() {
@@ -2530,6 +2571,7 @@
       xp: state.xp,
       level: state.level,
       health: state.health,
+      energy: state.energy,
       band: bandSize(),
       bossKills: bossKills(),
       redeemed: redeemedCount(),
@@ -2544,7 +2586,7 @@
     return gained + state.xp;
   }
 
-  function showActionFeedback(target, before) {
+  function showActionFeedback(target, before, action) {
     const parts = [];
     const dGold = state.gold - before.gold;
     const dXp = xpGainedSince(before);
@@ -2554,6 +2596,9 @@
     if (dXp > 0) parts.push({ cls: "fx-xp", text: "+" + dXp + " XP" });
     if (dHealth > 0) parts.push({ cls: "fx-heal", text: "+" + dHealth + " HP" });
     if (dHealth < 0) parts.push({ cls: "fx-hurt", text: "−" + -dHealth + " HP" });
+    if (action === "cast" && state.energy < before.energy) {
+      parts.push({ cls: "fx-mana", text: "−" + (before.energy - state.energy) + " Mana" });
+    }
     if (parts.length) {
       // The clicked button may have just been hidden (the daily bar closes on Claim): float from Gold instead.
       let rect = target.isConnected ? target.getBoundingClientRect() : null;
@@ -2670,6 +2715,16 @@
       case "dailyStreak":
         cur = state.daily.streak;
         break;
+      case "spellCasts":
+        cur = Object.keys(state.spells.casts).reduce(function (sum, id) {
+          return sum + state.spells.casts[id];
+        }, 0);
+        break;
+      case "spellsMastered":
+        cur = SPELLS.filter(function (sp) {
+          return spellRank(sp.id) >= F.SPELL_RANK_CASTS.length;
+        }).length;
+        break;
       case "eventRewards":
         cur = Object.keys(state.events).filter(function (k) {
           return state.events[k].claimed;
@@ -2783,6 +2838,242 @@
     patchChildren(el.dailyBar, frag);
   }
 
+  // --- Spellbook ---
+
+  function spellCasts(id) {
+    return state.spells.casts[id] || 0;
+  }
+
+  function spellRank(id) {
+    return F.spellRank(spellCasts(id));
+  }
+
+  function getSpell(id) {
+    return SPELLS.find(function (sp) {
+      return sp.id === id;
+    });
+  }
+
+  /** An active buff, or null once its time or charges have run out. */
+  function activeSpell(id) {
+    const a = state.spells.active[id];
+    if (!a) return null;
+    if (a.until && a.until <= Date.now()) return null;
+    if (a.charges !== undefined && a.charges <= 0) return null;
+    return a;
+  }
+
+  const EMPTY_SPELL_EFFECTS = {
+    duelPower: 0,
+    cooldownCut: 0,
+    attackPct: 0,
+    defensePct: 0,
+    nemesisDamage: 0,
+    goldMult: 0,
+    xpMult: 0,
+  };
+
+  /** Sum of every active buff's effects, scaled by the potency it was cast with. */
+  function spellEffects() {
+    const out = Object.assign({}, EMPTY_SPELL_EFFECTS);
+    SPELLS.forEach(function (sp) {
+      const a = activeSpell(sp.id);
+      if (!a) return;
+      Object.keys(sp.effect).forEach(function (k) {
+        if (k in out) out[k] += sp.effect[k] * a.potency;
+      });
+    });
+    return out;
+  }
+
+  /** Spend one charge of every active buff with this effect (a Hex is used up by one duel). */
+  function useSpellCharge(effectKey) {
+    SPELLS.forEach(function (sp) {
+      const a = activeSpell(sp.id);
+      if (!a || a.charges === undefined || !sp.effect[effectKey]) return;
+      a.charges -= 1;
+      if (a.charges <= 0) {
+        delete state.spells.active[sp.id];
+        addLog(sp.name + " is spent.");
+      }
+    });
+  }
+
+  /** Drop buffs whose time has run out (charges are cleared as they are used). */
+  function pruneSpells() {
+    Object.keys(state.spells.active).forEach(function (id) {
+      if (!activeSpell(id)) delete state.spells.active[id];
+    });
+  }
+
+  function spellCooldownLeft(id) {
+    return Math.max(0, (state.spells.cooldownUntil[id] || 0) - Date.now());
+  }
+
+  /** Player-facing effect of a spell at a potency, e.g. "+31% power in your next duel". */
+  function spellEffectText(sp, potency) {
+    const e = sp.effect;
+    const pct = function (v) {
+      return Math.round(v * potency * 100) + "%";
+    };
+    const parts = [];
+    if (e.duelPower) parts.push("+" + pct(e.duelPower) + " power in your next " + (sp.charges > 1 ? sp.charges + " duels" : "duel"));
+    if (e.cooldownCut) parts.push("schemes you start rest " + pct(e.cooldownCut) + " shorter");
+    if (e.attackPct) parts.push("+" + pct(e.attackPct) + " attack");
+    if (e.defensePct) parts.push("+" + pct(e.defensePct) + " defense");
+    if (e.nemesisDamage) parts.push("+" + pct(e.nemesisDamage) + " damage on your next " + sp.charges + " nemesis strikes");
+    if (e.goldMult) parts.push("+" + pct(e.goldMult) + " gold");
+    if (e.xpMult) parts.push("+" + pct(e.xpMult) + " XP");
+    if (e.healPct) parts.push("restore " + pct(e.healPct) + " of your Health");
+    if (e.restoreWill) parts.push("restore " + Math.round(e.restoreWill * potency) + " Will");
+    let text = parts.join(", ");
+    if (sp.durationMs) text += " for " + formatSeconds(Math.round(sp.durationMs / 1000));
+    return text.charAt(0).toUpperCase() + text.slice(1) + ".";
+  }
+
+  function castSpell(id) {
+    const sp = getSpell(id);
+    if (!sp) return;
+    if (state.level < sp.minLevel) {
+      addLog("You will learn " + sp.name + " at Level " + sp.minLevel + ".");
+      render();
+      return;
+    }
+    const cd = spellCooldownLeft(sp.id);
+    if (cd > 0) {
+      addLog(sp.name + " is gathering power — " + formatCooldown(cd) + " left.");
+      render();
+      return;
+    }
+    if (sp.kind === "buff" && activeSpell(sp.id)) {
+      addLog(sp.name + " is already upon you.");
+      render();
+      return;
+    }
+    if (state.energy < sp.mana) {
+      addLog("Not enough Mana to cast " + sp.name + " (" + sp.mana + " needed).");
+      render();
+      return;
+    }
+    const rankBefore = spellRank(sp.id);
+    const potency = F.spellPotency(rankBefore);
+    state.energy -= sp.mana;
+    state.spells.cooldownUntil[sp.id] = Date.now() + sp.cooldownMs;
+    state.spells.casts[sp.id] = spellCasts(sp.id) + 1;
+
+    if (sp.kind === "instant") {
+      if (sp.effect.healPct) {
+        const heal = Math.max(1, Math.round(state.healthMax * sp.effect.healPct * potency));
+        state.health = Math.min(state.healthMax, state.health + heal);
+        clearFallenIfHealed();
+      }
+      if (sp.effect.restoreWill) {
+        state.stamina = Math.min(state.staminaMax, state.stamina + Math.round(sp.effect.restoreWill * potency));
+      }
+    } else {
+      const buff = { potency: potency };
+      if (sp.durationMs) buff.until = Date.now() + sp.durationMs;
+      if (sp.charges) buff.charges = sp.charges;
+      state.spells.active[sp.id] = buff;
+    }
+    addLog("You cast " + sp.name + ": " + spellEffectText(sp, potency));
+    const rankAfter = spellRank(sp.id);
+    if (rankAfter > rankBefore) {
+      addLog(
+        "Your " +
+          sp.name +
+          " grows stronger: " +
+          MASTERY_RANKS[rankAfter] +
+          " (×" +
+          F.spellPotency(rankAfter) +
+          " potency)."
+      );
+    }
+    save();
+    render();
+  }
+
+  function renderSpells() {
+    if (!el.spellList) return;
+    const frag = document.createDocumentFragment();
+    SPELLS.forEach(function (sp) {
+      const locked = state.level < sp.minLevel;
+      const rank = spellRank(sp.id);
+      const casts = spellCasts(sp.id);
+      const potency = F.spellPotency(rank);
+      const cd = spellCooldownLeft(sp.id);
+      const active = sp.kind === "buff" ? activeSpell(sp.id) : null;
+      const nextAt = F.SPELL_RANK_CASTS[rank];
+      const card = document.createElement("article");
+      card.className =
+        "card spell-card" + (locked ? " locked" : "") + (active ? " active-spell" : "") + (cd && !active ? " cooling" : "");
+      card.setAttribute("data-key", "spell:" + sp.id);
+      card.innerHTML =
+        '<div class="card-body">' +
+        "<h3>" +
+        escapeHtml(sp.name) +
+        '<span class="badge mastery-badge">' +
+        escapeHtml(MASTERY_RANKS[rank]) +
+        "</span>" +
+        (active ? '<span class="badge spell-on">Active</span>' : "") +
+        "</h3>" +
+        '<p class="card-meta">' +
+        escapeHtml(sp.desc) +
+        "</p>" +
+        '<p class="card-meta spell-effect">' +
+        escapeHtml(spellEffectText(sp, potency)) +
+        "</p>" +
+        '<p class="card-meta">' +
+        '<span class="cost">' +
+        sp.mana +
+        " Mana</span> · recast after " +
+        formatSeconds(Math.round(sp.cooldownMs / 1000)) +
+        (locked ? ' · <span class="gate">Learned at Level ' + sp.minLevel + "</span>" : "") +
+        (cd && !active ? ' · <span class="gate">Ready in ' + formatCooldown(cd) + "</span>" : "") +
+        "</p>" +
+        (locked
+          ? ""
+          : '<p class="card-meta"><span class="mastery">' +
+            casts +
+            " casts" +
+            (nextAt ? " · " + (nextAt - casts) + " to " + MASTERY_RANKS[rank + 1] : " · fully mastered") +
+            "</span></p>") +
+        "</div>";
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "btn btn-primary";
+      if (locked) btn.textContent = "Locked";
+      else if (active) btn.textContent = "Active";
+      else if (cd) btn.textContent = "Wait " + formatCooldown(cd);
+      else btn.textContent = "Cast";
+      btn.disabled = locked || !!active || !!cd || state.energy < sp.mana;
+      actionButton(btn, "cast", sp.id);
+      card.appendChild(btn);
+      frag.appendChild(card);
+    });
+    patchChildren(el.spellList, frag);
+  }
+
+  /** Chips under the tab bar for every spell currently working on you. */
+  function renderActiveSpells() {
+    if (!el.activeSpells) return;
+    const frag = document.createDocumentFragment();
+    SPELLS.forEach(function (sp) {
+      const a = sp.kind === "buff" ? activeSpell(sp.id) : null;
+      if (!a) return;
+      const chip = document.createElement("span");
+      chip.className = "spell-chip";
+      chip.setAttribute("data-key", "chip:" + sp.id);
+      const left = [];
+      if (a.charges !== undefined) left.push(a.charges + (a.charges === 1 ? " use" : " uses"));
+      if (a.until) left.push(formatCooldown(a.until - Date.now()));
+      chip.textContent = sp.name + " · " + left.join(" · ");
+      frag.appendChild(chip);
+    });
+    el.activeSpells.hidden = !frag.childNodes.length;
+    patchChildren(el.activeSpells, frag);
+  }
+
   // --- Seasonal events ---
 
   const EVENT_FOE_STAMINA = 10;
@@ -2840,7 +3131,8 @@
     }
     state.stamina -= foe.stamina;
     prog.cooldownUntil = Date.now() + EVENT_FOE_COOLDOWN_MS;
-    const odds = F.fightWinChance(attackRating(), foe.power);
+    const odds = F.fightWinChance(duelAttack(), foe.power);
+    useSpellCharge("duelPower");
     if (Math.random() < odds) {
       const goldGain = Math.floor(foe.gold * goldMultiplier());
       const xpGain = Math.floor(foe.xp * xpMultiplier());
@@ -2942,7 +3234,7 @@
     if (!ev) return null;
     const foe = eventFoe(ev);
     const cdLeft = Math.max(0, ev.progress.cooldownUntil - Date.now());
-    const odds = F.fightWinChance(attackRating(), foe.power);
+    const odds = F.fightWinChance(duelAttack(), foe.power);
     const wrap = document.createDocumentFragment();
     const head = document.createElement("h3");
     head.className = "list-region event-head";
@@ -3291,7 +3583,8 @@
         '">' +
         Math.round(odds * 100) +
         "% win chance</span> · power " +
-        attackRating() +
+        Math.round(duelAttack()) +
+        (spellEffects().duelPower ? ' <span class="mastery">(hexed)</span>' : "") +
         " vs " +
         f.power +
         (upset > 1
@@ -4109,6 +4402,7 @@
   /** Panels on each tab. Hidden tabs aren't rendered; setTab() renders a tab when it's shown. */
   const TAB_RENDERERS = {
     quests: [renderRegions, renderQuests],
+    spells: [renderSpells],
     lists: [renderFights, renderHeals],
     bosses: [renderBosses],
     band: [renderBand],
@@ -4129,6 +4423,7 @@
     renderStatsOnly();
     renderDaily();
     renderEventBar();
+    renderActiveSpells();
     renderTabAlerts();
     renderTabPanels();
   }
@@ -4237,6 +4532,7 @@
     BOSSES: BOSSES,
     RENOWN_TITLES: RENOWN_TITLES,
     ACHIEVEMENTS: ACHIEVEMENTS,
+    SPELLS: SPELLS,
     NAMED_KNIGHTS: NAMED_KNIGHTS,
     SAVE_VERSION: SAVE_VERSION,
     attackRating: attackRating,

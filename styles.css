@@ -327,6 +327,47 @@ body {
   background: var(--mastery);
 }
 
+/* --- Spellbook --- */
+
+.card.active-spell {
+  border-color: var(--accent-hover);
+  box-shadow: 0 0 0 1px var(--accent-hover), 0 0 16px var(--glow);
+}
+
+.badge.spell-on {
+  background: var(--btn-primary);
+  color: var(--rune);
+}
+
+.card-meta.spell-effect {
+  color: var(--text);
+}
+
+.active-spells {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0 0 0.75rem;
+}
+
+.active-spells[hidden] {
+  display: none;
+}
+
+.spell-chip {
+  padding: 0.2rem 0.6rem;
+  font-size: 0.8rem;
+  color: var(--rune);
+  background: var(--btn-primary);
+  border: 1px solid var(--accent-hover);
+  border-radius: 999px;
+  font-variant-numeric: tabular-nums;
+}
+
+.fx-mana {
+  color: var(--energy);
+}
+
 /* --- New-player tip, Renown --- */
 
 .tip {

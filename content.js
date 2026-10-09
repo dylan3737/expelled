@@ -1559,6 +1559,101 @@
   ];
 
   /**
+   * Spells: cast with Mana from the Spellbook. A "buff" lasts `durationMs` and/or `charges` uses; an
+   * "instant" applies at once. Effect values are scaled by potency, which grows with mastery (casts).
+   * Effects: duelPower (attack in the next duels), cooldownCut (share off new scheme cooldowns),
+   * attackPct / defensePct, nemesisDamage, goldMult, xpMult, healPct (of max Health), restoreWill.
+   */
+  const SPELLS = [
+    {
+      id: "hex",
+      name: "Hex of Misfortune",
+      desc: "Whisper a curse on your next rival as they step into the Circle.",
+      minLevel: 2,
+      mana: 8,
+      cooldownMs: 90000,
+      kind: "buff",
+      charges: 1,
+      effect: { duelPower: 0.25 },
+    },
+    {
+      id: "blood_mend",
+      name: "Blood Mending",
+      desc: "Knit your wounds shut with a thread of your own blood.",
+      minLevel: 4,
+      mana: 12,
+      cooldownMs: 300000,
+      kind: "instant",
+      effect: { healPct: 0.3 },
+    },
+    {
+      id: "quicken",
+      name: "Quicken the Hours",
+      desc: "Hurry the clocks of Hollowmere; your schemes need less time to settle.",
+      minLevel: 6,
+      mana: 20,
+      cooldownMs: 900000,
+      kind: "buff",
+      durationMs: 300000,
+      effect: { cooldownCut: 0.4 },
+    },
+    {
+      id: "bone_servant",
+      name: "Bone Servant",
+      desc: "Raise a skeletal bodyguard that fights at your side.",
+      minLevel: 9,
+      mana: 18,
+      cooldownMs: 900000,
+      kind: "buff",
+      durationMs: 600000,
+      effect: { attackPct: 0.12, defensePct: 0.12 },
+    },
+    {
+      id: "scry",
+      name: "Scry the Nemesis",
+      desc: "Read your nemesis's weak point in a bowl of black water.",
+      minLevel: 12,
+      mana: 25,
+      cooldownMs: 1200000,
+      kind: "buff",
+      charges: 5,
+      effect: { nemesisDamage: 0.3 },
+    },
+    {
+      id: "gilded_tongue",
+      name: "Gilded Tongue",
+      desc: "Every bargain bends your way, and no one can say why.",
+      minLevel: 15,
+      mana: 30,
+      cooldownMs: 1800000,
+      kind: "buff",
+      durationMs: 600000,
+      effect: { goldMult: 0.25 },
+    },
+    {
+      id: "siphon_will",
+      name: "Siphon Will",
+      desc: "Drink the resolve of a sleeping city.",
+      minLevel: 18,
+      mana: 30,
+      cooldownMs: 1200000,
+      kind: "instant",
+      effect: { restoreWill: 15 },
+    },
+    {
+      id: "dark_insight",
+      name: "Dark Insight",
+      desc: "Open your mind to things that should stay closed; every lesson cuts deeper.",
+      minLevel: 22,
+      mana: 40,
+      cooldownMs: 1800000,
+      kind: "buff",
+      durationMs: 600000,
+      effect: { xpMult: 0.25 },
+    },
+  ];
+
+  /**
    * Seasonal events, by local calendar date (MM-DD, inclusive; an event may run across New Year).
    * While one is active, its champion appears in the Circle. The champion always matches your
    * strength; each win earns a token, and `tokenGoal` tokens claim the event's unique relic
@@ -1818,6 +1913,20 @@
       gold: 2000,
     },
     {
+      id: "first_incantation",
+      name: "First Incantation",
+      desc: "Cast a spell from your Spellbook.",
+      check: { type: "spellCasts", target: 1 },
+      gold: 200,
+    },
+    {
+      id: "master_of_the_word",
+      name: "Master of the Word",
+      desc: "Reach Master rank in a spell.",
+      check: { type: "spellsMastered", target: 1 },
+      gold: 5000,
+    },
+    {
       id: "faithful_vassal",
       name: "A Loyal Cult",
       desc: "Collect the nightly tithe 7 nights in a row.",
@@ -1843,5 +1952,6 @@
     NAMED_KNIGHTS: NAMED_KNIGHTS,
     ACHIEVEMENTS: ACHIEVEMENTS,
     EVENTS: EVENTS,
+    SPELLS: SPELLS,
   };
 });

@@ -4,7 +4,7 @@ The rise of a dark magician, in the spirit of old Facebook *Mafia Wars*. Cast ou
 
 **Status:** private, not published. Open `index.html` locally to play (see [How to run locally](#how-to-run-locally)); [Hosting](#hosting) explains how to publish it later.
 
-**Current version: v2.0** — the game is rethemed from Arthurian legend to **the adventures of a dark magician** (see [v2.0](#v20--the-dark-magician)); mechanics, numbers and saves are unchanged. v1.0 added a fourth region (Lyonesse, now the Drowned Archive, Level 35), seasonal tourneys (now festivals), a balance pass driven by a simulated player (levels now take much longer), and fixes from a code review. v0.9 added a first-visit guide, achievements, a daily tribute, music and an installable app; v0.8 added seven new foes in The Lists, sound effects, and tests + deploys on GitHub Actions; v0.7 brought a gentler start and a longer end: a softer first foe plus a Tempered Blade tip, a third boss (**the Questing Beast**), and **Renown** (prestige). v0.6 made it easier to play: tabs instead of one long page, a save backup you can copy and paste, and clearer feedback (floating gains, a level-up flash, time-until-full on Energy / Stamina / Health). v0.5 deepened the economy (ranked training, region-tiered loot you can sell, odds-based bouts, quest requirements); v0.4 added Regions, Bosses, Knight Band and Collections.
+**Current version: v2.1** — a **Spellbook** of eight spells cast with Mana (see [v2.1](#v21--the-spellbook)), and browser tests that run in CI. v2.0 rethemed the game from Arthurian legend to **the adventures of a dark magician** (see [v2.0](#v20--the-dark-magician)); mechanics, numbers and saves are unchanged. v1.0 added a fourth region (Lyonesse, now the Drowned Archive, Level 35), seasonal tourneys (now festivals), a balance pass driven by a simulated player (levels now take much longer), and fixes from a code review. v0.9 added a first-visit guide, achievements, a daily tribute, music and an installable app; v0.8 added seven new foes in The Lists, sound effects, and tests + deploys on GitHub Actions; v0.7 brought a gentler start and a longer end: a softer first foe plus a Tempered Blade tip, a third boss (**the Questing Beast**), and **Renown** (prestige). v0.6 made it easier to play: tabs instead of one long page, a save backup you can copy and paste, and clearer feedback (floating gains, a level-up flash, time-until-full on Energy / Stamina / Health). v0.5 deepened the economy (ranked training, region-tiered loot you can sell, odds-based bouts, quest requirements); v0.4 added Regions, Bosses, Knight Band and Collections.
 
 ## Resources
 
@@ -20,6 +20,26 @@ The rise of a dark magician, in the spirit of old Facebook *Mafia Wars*. Cast ou
 - Energy regenerates about every **12s**; Stamina about every **18s** (slower, more Mafia Wars–like).
 - Quest cooldowns are **short on early jobs**, **long on late jobs** (up to a few minutes).
 - Fight opponent cooldowns are longer too.
+
+## v2.1 — The Spellbook
+
+A **Spells** tab (second tab) holds eight spells, learned by level and cast with **Mana**, so every cast is Mana not spent on a scheme. Each spell then rests for its cooldown. Buffs last a set time or a number of uses and can't be stacked; instants apply at once. Active buffs show as chips under the tab bar.
+
+| Spell | Level | Mana | Recast | Effect (Untried) |
+|-------|-------|------|--------|------------------|
+| **Hex of Misfortune** | 2 | 8 | 1m 30s | +25% power in your next duel (festival duels too) |
+| **Blood Mending** | 4 | 12 | 5m | Restore 30% of your Health |
+| **Quicken the Hours** | 6 | 20 | 15m | For 5m, schemes you start rest 40% shorter |
+| **Bone Servant** | 9 | 18 | 15m | For 10m, +12% attack and defense |
+| **Scry the Nemesis** | 12 | 25 | 20m | +30% damage on your next 5 nemesis strikes |
+| **Gilded Tongue** | 15 | 30 | 30m | For 10m, +25% gold |
+| **Siphon Will** | 18 | 30 | 20m | Restore 15 Will |
+| **Dark Insight** | 22 | 40 | 30m | For 10m, +25% XP |
+
+- **Mastery:** every cast counts. At 10 / 30 / 100 casts a spell becomes Practiced / Adept / Master, and its effect is multiplied by ×1.25 / ×1.5 / ×1.75 (`spellRank` and `spellPotency` in `formulas.js`). Mastery is kept through rebirth; active spells and cooldowns are not.
+- New spells are announced on level-up, and the Spells tab shows a dot while you know a spell you have never cast. Duel cards say **(hexed)** while a Hex is waiting.
+- Achievements: *First Incantation* (cast a spell) and *Master of the Word* (master one).
+- Spells live in `SPELLS` in `content.js` (effects: `duelPower`, `cooldownCut`, `attackPct`, `defensePct`, `nemesisDamage`, `goldMult`, `xpMult`, `healPct`, `restoreWill`); a content test checks every spell's kind, effects and limits. Saved under `spells: { casts, cooldownUntil, active }`; `saveVersion` is 10.
 
 ## v2.0 — The Dark Magician
 
@@ -308,20 +328,28 @@ npx --yes serve .
 
 ## Tests
 
-Plain Node, no dependencies (Node 18+):
+Unit tests are plain Node with no dependencies (Node 18+). Browser tests drive the real game in headless Chromium through Playwright, a dev dependency:
 
 ```bash
-npm test        # runs node --test over tests/*.test.js
+npm test                    # unit tests: node --test over tests/*.test.js
+npm install                 # once, for the browser tests
+npx playwright install chromium   # once, if you don't have Playwright's Chromium yet
+npm run test:browser        # browser tests: e2e/*.e2e.js
 ```
 
 - `tests/formulas.test.js` — XP curve, quest cooldowns, seasonal event dates (including across New Year), fight odds and upset bonus, defense soak, training costs, band cap / hire cost, time-until-full, backup code round-trips, daily tribute dates / streak / gold.
 - `tests/content.test.js` — sanity checks on `content.js`: unique ids, quests in real regions with a story beat at every mastery rank, band requirements reachable at each quest's level, 3 weapons / 3 armors / 3 relics per region, every boss drops a real unique and collection piece and has a legend, named-knight boss bonuses point at real bosses, foes get harder and pay more with level, achievements use known checks with reachable targets, and seasonal events have valid dates, real rewards and never overlap.
 
-Run them after any balance edit in `content.js`. GitHub Actions also runs them on every push and pull request.
+- `e2e/game.e2e.js` — a new game and its first scheme, tabs and the remembered tab, rename / reset with `prompt()` / `confirm()` blocked, backup round-trip and rejection, an old Arthurian-era save loading with its progress and new-theme Secrets, a festival won and claimed under a fake clock, rebirth keeping Infamy / achievements / spell mastery, and the service worker reloading the game offline.
+- `e2e/spells.e2e.js` — spells unlocking by level, Hex raising odds and being spent by one duel, Quicken / Blood Mending / Gilded Tongue, mastery potency and buffs wearing off, First Incantation.
+
+Every browser test also fails on any console or page error. `e2e/helpers.js` serves the repo on a local port and blocks Google Fonts so no test needs the network.
+
+Run the unit tests after any balance edit in `content.js`. GitHub Actions runs both suites on every push and pull request.
 
 ## Hosting
 
-`.github/workflows/ci.yml` runs `npm test` on every push and pull request. The game isn't published while the repo is private.
+`.github/workflows/ci.yml` runs the unit tests and the browser tests on every push and pull request. The game isn't published while the repo is private.
 
 The game is a static site, ready to host anywhere. To publish it later on **GitHub Pages** (which needs a public repo, or a paid GitHub plan for a private one), add two jobs after `test` in `ci.yml`:
 
@@ -336,10 +364,11 @@ Then set **Settings → Pages → Source** to **GitHub Actions**. (This workflow
 |------|------|
 | `index.html` | Layout: header (rename / backup / reset dialogs), stats (incl. band), tab bar + ticker, then one tagged `data-panel` section per tab: quests + region tabs, Lists + Chapel, bosses, knight band, holdings, inventory, collections, shop, renown, chronicle + legends. Loads `formulas.js`, `content.js`, then `game.js`. |
 | `styles.css` | Dark parchment / stone theme |
-| `content.js` | **Content tables** (pure data, tune balance here): `REGIONS` / `QUESTS` / `STORY_BEATS` / `BOSS_LEGENDS` / `MASTERY_BONUSES` / `FOES` / `HEALS` / `UPGRADES` / `RANKED_UPGRADES` / `HOLDINGS` / `LOOT` / `COLLECTIONS` / `BOSSES` / `NAMED_KNIGHTS` / `ACHIEVEMENTS` / `EVENTS`. Exposed as `window.RuinWarsContent`. |
+| `content.js` | **Content tables** (pure data, tune balance here), including `SPELLS`: `REGIONS` / `QUESTS` / `STORY_BEATS` / `BOSS_LEGENDS` / `MASTERY_BONUSES` / `FOES` / `HEALS` / `UPGRADES` / `RANKED_UPGRADES` / `HOLDINGS` / `LOOT` / `COLLECTIONS` / `BOSSES` / `NAMED_KNIGHTS` / `ACHIEVEMENTS` / `EVENTS`. Exposed as `window.RuinWarsContent`. |
 | `formulas.js` | **Pure formulas** with no DOM or game state: `xpForLevel`, `questCooldownMs`, `fightWinChance(attack, power)`, `upsetMultiplier`, `soakDamage(dmg, defense)`, `rankedUpgradeCost(def, rank)`, `bandCap(level)`, `hireCost(recruits)`, `msUntilFull`, `encodeBackup` / `decodeBackup`. Exposed as `window.RuinWarsFormulas`. |
 | `game.js` | Game rules, state, save/load and rendering, built on the two files above |
-| `tests/` | `node --test` suites for the formulas and content (see Tests) |
+| `tests/` | `node --test` unit suites for the formulas and content (see Tests) |
+| `e2e/` | Browser tests with Playwright (see Tests) |
 | `tools/balance-sim.js` | Simulated player for balance checks (see Balance pass) |
 | `manifest.webmanifest`, `sw.js`, `icons/` | App install and offline play on the hosted site (see Install and offline play) |
 | `.github/workflows/ci.yml` | Tests on every push / PR |
@@ -355,12 +384,12 @@ In `game.js`:
 - **Tabs / feedback** — `setTab` / `tabAlerts` / `renderTicker`; `onActionClick` snapshots gold / XP / level / health before each action and `showActionFeedback` floats the difference
 - **Backup** — `F.encodeBackup(savePayload())` / `F.decodeBackup(text)`; `load()` and backup import both go through `applySaveData(data)`
 - **Renown** — `beginNewLegend` keeps `name`, `renown`, `storyUnlocks`; `renownBonuses()` feeds `goldMultiplier` / `xpMultiplier`
-- **`save` / `load`** — `localStorage` key `ruin_wars_save_v4` (`saveVersion: 9`); falls back to legacy `ruin_wars_save_v1` and migrates. Saves happen immediately after actions, at most every ~8s from the tick when something changed, and on `visibilitychange` (hidden) / `pagehide` / `beforeunload`. The last 50 chronicle lines are saved under `log` (optional; older saves load fine without it).
+- **`save` / `load`** — `localStorage` key `ruin_wars_save_v4` (`saveVersion: 10`); falls back to legacy `ruin_wars_save_v1` and migrates. Saves happen immediately after actions, at most every ~8s from the tick when something changed, and on `visibilitychange` (hidden) / `pagehide` / `beforeunload`. The last 50 chronicle lines are saved under `log` (optional; older saves load fine without it).
 - **`window.RuinWars`** — DevTools helpers
 
 ## Save compatibility
 
-v2.0 still saves to `ruin_wars_save_v4`, now with `saveVersion: 9` (the retheme added no fields); older v4 saves load as-is and gain the fields added since: `upgradeRanks: {}` (v0.5), `renown: 0` (v0.7), `achievements` / `stats` / `daily` (v0.9) and `events: {}` (v1.0). Levels and XP carry over unchanged, so after the v1.0 XP curve an existing knight keeps their level and simply needs more XP for the next one. A save that can't be read is copied to `ruin_wars_save_unreadable` (never overwritten) before the game starts fresh. If no v4 save exists, the v0.3 save under `ruin_wars_save_v1` is loaded and migrated: missing fields (`region`, `collections`, `collectionsRedeemed`, `bosses`, `band`, plus the older `questCounts`, `storyUnlocks`, `holdings`, `inventory`, `equipped`) get defaults. The legacy key is left untouched, so rolling back to v0.3 still works. Use **Reset** for a clean slate.
+v2.1 still saves to `ruin_wars_save_v4`, now with `saveVersion: 10`; older v4 saves load as-is and gain the fields added since: `upgradeRanks: {}` (v0.5), `renown: 0` (v0.7), `achievements` / `stats` / `daily` (v0.9), `events: {}` (v1.0) and `spells` (v2.1; v2.0 added none). Levels and XP carry over unchanged, so after the v1.0 XP curve an existing knight keeps their level and simply needs more XP for the next one. A save that can't be read is copied to `ruin_wars_save_unreadable` (never overwritten) before the game starts fresh. If no v4 save exists, the v0.3 save under `ruin_wars_save_v1` is loaded and migrated: missing fields (`region`, `collections`, `collectionsRedeemed`, `bosses`, `band`, plus the older `questCounts`, `storyUnlocks`, `holdings`, `inventory`, `equipped`) get defaults. The legacy key is left untouched, so rolling back to v0.3 still works. Use **Reset** for a clean slate.
 
 ## Suggested next features
 

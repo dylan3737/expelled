@@ -1,6 +1,6 @@
 name: CI
 
-# Tests run on every push and pull request. (Publishing to GitHub Pages was
+# Unit tests and browser tests run on every push and pull request. (Publishing to GitHub Pages was
 # removed while the game is private; see "Hosting" in the README to bring it back.)
 
 on:
@@ -25,3 +25,15 @@ jobs:
         with:
           node-version: 22
       - run: npm test
+
+  browser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:browser

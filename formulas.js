@@ -174,8 +174,25 @@
     return null;
   }
 
+  const SPELL_RANK_CASTS = [10, 30, 100]; // casts needed for Practiced / Adept / Master
+
+  /** Spell mastery rank (0 = Untried … 3 = Master) after this many casts. */
+  function spellRank(casts) {
+    let rank = 0;
+    for (let i = 0; i < SPELL_RANK_CASTS.length; i++) if (casts >= SPELL_RANK_CASTS[i]) rank = i + 1;
+    return rank;
+  }
+
+  /** Multiplier on a spell's effect at a mastery rank: ×1, ×1.25, ×1.5, ×1.75. */
+  function spellPotency(rank) {
+    return 1 + 0.25 * rank;
+  }
+
   return {
     DAILY_STREAK_MAX: DAILY_STREAK_MAX,
+    SPELL_RANK_CASTS: SPELL_RANK_CASTS,
+    spellRank: spellRank,
+    spellPotency: spellPotency,
     activeEvent: activeEvent,
     dayKey: dayKey,
     daysBetween: daysBetween,
