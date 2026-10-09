@@ -4,7 +4,7 @@ The rise of a dark magician, in the spirit of old Facebook *Mafia Wars*. Cast ou
 
 **Status:** private, not published. Open `index.html` locally to play (see [How to run locally](#how-to-run-locally)); [Hosting](#hosting) explains how to publish it later.
 
-**Current version: v2.3** — the game has its own name and repo. Until v2.2 it was the dark-magician branch of **Ruin Wars**; Ruin Wars itself went back to its Arthurian v1.0 in its own repo (see [v2.3](#v23--expelled)). v2.2 added a **main story** in 21 chapters and a fifth region, **the Black Spire** (see [v2.2](#v22--the-tale-and-the-black-spire)). v2.1 added a **Spellbook** of eight spells cast with Mana (see [v2.1](#v21--the-spellbook)), and browser tests that run in CI. v2.0 rethemed the game from Arthurian legend to **the adventures of a dark magician** (see [v2.0](#v20--the-dark-magician)); mechanics, numbers and saves are unchanged. v1.0 added a fourth region (Lyonesse, now the Drowned Archive, Level 35), seasonal tourneys (now festivals), a balance pass driven by a simulated player (levels now take much longer), and fixes from a code review. v0.9 added a first-visit guide, achievements, a daily tribute, music and an installable app; v0.8 added seven new foes in The Lists, sound effects, and tests + deploys on GitHub Actions; v0.7 brought a gentler start and a longer end: a softer first foe plus a Tempered Blade tip, a third boss (**the Questing Beast**), and **Renown** (prestige). v0.6 made it easier to play: tabs instead of one long page, a save backup you can copy and paste, and clearer feedback (floating gains, a level-up flash, time-until-full on Energy / Stamina / Health). v0.5 deepened the economy (ranked training, region-tiered loot you can sell, odds-based bouts, quest requirements); v0.4 added Regions, Bosses, Knight Band and Collections.
+**Current version: v2.4** — a polish pass: clearer rank badges and bonus text, a tab bar that shows it scrolls on phones, toasts that no longer cover the tabs, and a compact achievements grid (see [v2.4](#v24--polish-pass)). v2.3 gave the game its own name and repo. Until v2.2 it was the dark-magician branch of **Ruin Wars**; Ruin Wars itself went back to its Arthurian v1.0 in its own repo (see [v2.3](#v23--expelled)). v2.2 added a **main story** in 21 chapters and a fifth region, **the Black Spire** (see [v2.2](#v22--the-tale-and-the-black-spire)). v2.1 added a **Spellbook** of eight spells cast with Mana (see [v2.1](#v21--the-spellbook)), and browser tests that run in CI. v2.0 rethemed the game from Arthurian legend to **the adventures of a dark magician** (see [v2.0](#v20--the-dark-magician)); mechanics, numbers and saves are unchanged. v1.0 added a fourth region (Lyonesse, now the Drowned Archive, Level 35), seasonal tourneys (now festivals), a balance pass driven by a simulated player (levels now take much longer), and fixes from a code review. v0.9 added a first-visit guide, achievements, a daily tribute, music and an installable app; v0.8 added seven new foes in The Lists, sound effects, and tests + deploys on GitHub Actions; v0.7 brought a gentler start and a longer end: a softer first foe plus a Tempered Blade tip, a third boss (**the Questing Beast**), and **Renown** (prestige). v0.6 made it easier to play: tabs instead of one long page, a save backup you can copy and paste, and clearer feedback (floating gains, a level-up flash, time-until-full on Energy / Stamina / Health). v0.5 deepened the economy (ranked training, region-tiered loot you can sell, odds-based bouts, quest requirements); v0.4 added Regions, Bosses, Knight Band and Collections.
 
 ## Resources
 
@@ -20,6 +20,18 @@ The rise of a dark magician, in the spirit of old Facebook *Mafia Wars*. Cast ou
 - Energy regenerates about every **12s**; Stamina about every **18s** (slower, more Mafia Wars–like).
 - Quest cooldowns are **short on early jobs**, **long on late jobs** (up to a few minutes).
 - Fight opponent cooldowns are longer too.
+
+## v2.4 — Polish pass
+
+No rule or number changed; this pass is about reading the game at a glance, on phones above all.
+
+- **Rank badges:** a scheme or spell you have done but not yet Practiced reads **Novice** instead of Untried (in its badge and in the chronicle line). Untried now only means never done.
+- **Mastery bonus:** "bonus +2%g / +0%xp" now reads "bonus +2% gold" and leaves out zero parts. The Hoard's equipment line does the same, and says "no bonuses yet" when you have none.
+- **Tab bar on phones:** when tabs are hidden off either side, that edge fades out, and the open tab is always scrolled into view (also after a reload).
+- **Toasts** rise from the bottom of the screen instead of covering the header and the sticky tab bar, have one width, and a burst (such as a returning player's catch-up) shows only the newest three.
+- **Achievements** sit two to a row on phones (more on wider screens), with the progress bar on its own line.
+- Figures such as "dmg 4–10", "+12 gold" and "Requires Level 20" no longer break across lines.
+- The first-scheme achievement is now **First Scheme** (it was "First Spell", which clashed with the Spellbook and the story's First Spell).
 
 ## v2.3 — Expelled
 

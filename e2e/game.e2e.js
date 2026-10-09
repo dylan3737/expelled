@@ -143,6 +143,42 @@ test("a save from when the game was called Ruin Wars carries over, with its pref
   await ctx.close();
 });
 
+test("polish: rank badges, mastery bonus text, the tab bar's edge fade and the toast stack", async () => {
+  const { ctx, page, errors } = await openGame(browser, server.url, {
+    viewport: { width: 390, height: 844 },
+    save: {
+      level: 18,
+      saveVersion: 11,
+      questCounts: { patrol: 12, wyrm: 3 },
+      spells: { casts: { hex: 4 }, cooldownUntil: {}, active: {} },
+    },
+  });
+  const badge = (key) => page.textContent('[data-key="' + key + '"] .mastery-badge');
+  assert.equal(await badge("quest:patrol"), "Practiced");
+  assert.equal(await badge("quest:wyrm"), "Novice", "done before, but not yet Practiced");
+  assert.equal(await badge("quest:grail"), "Untried");
+  assert.match(await page.textContent('[data-key="quest:patrol"]'), /bonus \+2% gold/);
+  assert.doesNotMatch(await page.textContent('[data-key="quest:patrol"]'), /%xp|\+0%/);
+  await openTab(page, "spells");
+  assert.equal(await badge("spell:hex"), "Novice");
+  // On a phone the tab bar overflows: its right edge fades until you reach the end.
+  const bar = () => page.$eval("#tab-bar", (b) => b.className);
+  await openTab(page, "quests");
+  assert.match(await bar(), /more-right/);
+  await openTab(page, "chronicle");
+  assert.match(await bar(), /more-left/);
+  assert.doesNotMatch(await bar(), /more-right/);
+  // A burst of toasts keeps only the newest three.
+  await page.evaluate(() => {
+    for (let i = 0; i < 6; i++) window.Expelled.showToast("t" + i, "achv-toast", 3000);
+  });
+  assert.deepEqual(await page.$$eval("#toasts > *", (ts) => ts.map((t) => t.textContent)), ["t3", "t4", "t5"]);
+  await openTab(page, "gear");
+  assert.match(await page.textContent("#equip-summary"), /no bonuses yet/);
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
 test("Harvest Moon runs in October: ten wins claim its talisman", async () => {
   const { ctx, page, errors } = await openGame(browser, server.url, {
     time: new Date(2026, 9, 7, 12),

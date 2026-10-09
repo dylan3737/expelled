@@ -264,7 +264,7 @@ body {
 
 .achv-list {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 14rem), 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 9.5rem), 1fr));
   gap: 0.5rem;
 }
 
@@ -313,8 +313,8 @@ body {
 }
 
 .achv-bar {
-  display: inline-block;
-  width: 4rem;
+  display: block;
+  flex: 1 0 100%; /* its own line; the count and reward sit under it */
   height: 0.35rem;
   background: var(--border-soft);
   border-radius: 2px;
@@ -545,6 +545,22 @@ body {
   scrollbar-width: thin;
 }
 
+/* More tabs off to one side: fade that edge so it reads as scrollable. */
+.tab-bar.more-right {
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 2.5rem), transparent);
+  mask-image: linear-gradient(to right, #000 calc(100% - 2.5rem), transparent);
+}
+
+.tab-bar.more-left {
+  -webkit-mask-image: linear-gradient(to left, #000 calc(100% - 2.5rem), transparent);
+  mask-image: linear-gradient(to left, #000 calc(100% - 2.5rem), transparent);
+}
+
+.tab-bar.more-left.more-right {
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 2.5rem, #000 calc(100% - 2.5rem), transparent);
+  mask-image: linear-gradient(to right, transparent, #000 2.5rem, #000 calc(100% - 2.5rem), transparent);
+}
+
 .tab {
   appearance: none;
   position: relative;
@@ -690,7 +706,7 @@ body {
   position: fixed;
   z-index: 30;
   left: 50%;
-  top: calc(env(safe-area-inset-top, 0px) + 1rem);
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 1rem);
   transform: translateX(-50%);
   display: flex;
   flex-direction: column;
@@ -699,6 +715,11 @@ body {
   width: max-content;
   max-width: calc(100vw - 2rem);
   pointer-events: none;
+}
+
+.toasts > * {
+  min-width: min(16rem, calc(100vw - 2rem));
+  box-sizing: border-box;
 }
 
 .achv-toast {
@@ -730,7 +751,7 @@ body {
 @keyframes toast {
   0% {
     opacity: 0;
-    transform: translateY(-12px) scale(0.9);
+    transform: translateY(12px) scale(0.9);
   }
   12% {
     opacity: 1;
@@ -1249,4 +1270,12 @@ body {
   font-family: var(--font-display);
   font-weight: 400;
   letter-spacing: 0.02em;
+}
+
+/* Keep each figure ("dmg 4–10", "+12 gold", "Requires Level 20") on one line. */
+.card-meta [class^="cost-"],
+.card-meta [class^="reward-"],
+.card-meta [class^="odds-"],
+.card-meta .gate {
+  white-space: nowrap;
 }

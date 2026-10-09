@@ -2247,7 +2247,7 @@
   const ACHIEVEMENTS = [
     {
       id: "first_steps",
-      name: "First Spell",
+      name: "First Scheme",
       desc: "Complete your first scheme.",
       check: { type: "questsDone", target: 1 },
       gold: 50,

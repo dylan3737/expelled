@@ -1,5 +1,5 @@
 /**
- * Expelled — the rise of a dark magician (v2.3; called Ruin Wars until v2.2). Content tables live in content.js, pure formulas in formulas.js.
+ * Expelled — the rise of a dark magician (v2.4; called Ruin Wars until v2.2). Content tables live in content.js, pure formulas in formulas.js.
  * Quests (Energy) across Regions + mastery/story/requirements, The Lists (Stamina/Health, odds-based
  * bouts), Bosses, Knight Band, Holdings (passive gold), Loot/Inventory (region tiers, equip, sell),
  * Collections, shop upgrades + ranked training.
@@ -160,8 +160,14 @@
     return tier;
   }
 
+  /** Rank name for a mastery tier; tier 0 reads "Novice" once it has been done at all. */
+  function rankLabel(tier, count) {
+    if (tier === 0 && count > 0) return "Novice";
+    return MASTERY_RANKS[tier] || MASTERY_RANKS[0];
+  }
+
   function masteryRankName(questId) {
-    return MASTERY_RANKS[masteryTier(questId)] || MASTERY_RANKS[0];
+    return rankLabel(masteryTier(questId), questCount(questId));
   }
 
   function masteryBonusForQuest(questId) {
@@ -2480,6 +2486,23 @@
     return TAB_IDS.indexOf(stored) >= 0 ? stored : "quests";
   }
 
+  /** Scroll the tab bar (not the page) so this tab is fully visible. */
+  function revealTab(btn) {
+    const bar = el.tabBar;
+    const left = btn.offsetLeft - bar.offsetLeft;
+    const right = left + btn.offsetWidth;
+    if (left < bar.scrollLeft) bar.scrollLeft = Math.max(0, left - 24);
+    else if (right > bar.scrollLeft + bar.clientWidth) bar.scrollLeft = right - bar.clientWidth + 24;
+    updateTabBarEdges();
+  }
+
+  /** Fade the tab bar's edges while more tabs are hidden off either side (narrow screens). */
+  function updateTabBarEdges() {
+    const bar = el.tabBar;
+    bar.classList.toggle("more-left", bar.scrollLeft > 2);
+    bar.classList.toggle("more-right", bar.scrollLeft + bar.clientWidth < bar.scrollWidth - 2);
+  }
+
   function setTab(tabId) {
     if (TAB_IDS.indexOf(tabId) < 0) return;
     currentTab = tabId;
@@ -2491,6 +2514,7 @@
       btn.classList.toggle("active", on);
       btn.setAttribute("aria-selected", on ? "true" : "false");
       btn.tabIndex = on ? 0 : -1;
+      if (on) revealTab(btn);
     });
     writePref(TAB_STORE_KEY, tabId);
     if (tabId === "chronicle") {
@@ -2676,7 +2700,11 @@
   }
 
   /** Banner at the top of the screen; several stack instead of overlapping. */
+  const MAX_TOASTS = 3;
+
   function showToast(text, className, ms) {
+    // Keep the stack short: a burst (e.g. a returning player's catch-up) shows only the newest few.
+    while (el.toasts.children.length >= MAX_TOASTS) el.toasts.firstElementChild.remove();
     const toast = document.createElement("div");
     toast.className = className;
     toast.setAttribute("role", "status");
@@ -3220,7 +3248,7 @@
         "<h3>" +
         escapeHtml(sp.name) +
         '<span class="badge mastery-badge">' +
-        escapeHtml(MASTERY_RANKS[rank]) +
+        escapeHtml(rankLabel(rank, casts)) +
         "</span>" +
         (active ? '<span class="badge spell-on">Active</span>' : "") +
         "</h3>" +
@@ -3648,11 +3676,13 @@
         " completions · " +
         escapeHtml(nextMasteryHint(q.id)) +
         (mb.goldAdd || mb.xpAdd
-          ? " · bonus +" +
-            Math.round(mb.goldAdd * 100) +
-            "%g / +" +
-            Math.round(mb.xpAdd * 100) +
-            "%xp"
+          ? " · bonus " +
+            [
+              mb.goldAdd ? "+" + Math.round(mb.goldAdd * 100) + "% gold" : "",
+              mb.xpAdd ? "+" + Math.round(mb.xpAdd * 100) + "% XP" : "",
+            ]
+              .filter(Boolean)
+              .join(", ")
           : "") +
         "</span></p>" +
         (reqs.length
@@ -4233,21 +4263,21 @@
     const aId = state.equipped && state.equipped.armor;
     const wName = wId && getLootDef(wId) ? getLootDef(wId).name : "none";
     const aName = aId && getLootDef(aId) ? getLootDef(aId).name : "none";
+    // Only the bonuses you actually have, talismans included
+    const bonusParts = [
+      eq.attack ? "+" + eq.attack + " atk" : "",
+      eq.defense ? "+" + eq.defense + " def" : "",
+      eq.goldMult ? "+" + Math.round(eq.goldMult * 100) + "% gold" : "",
+      eq.xpMult ? "+" + Math.round(eq.xpMult * 100) + "% XP" : "",
+    ].filter(Boolean);
     patchHtml(
       el.equipSummary,
       "<strong>Focus:</strong> " +
         escapeHtml(wName) +
         " · <strong>Vestments:</strong> " +
         escapeHtml(aName) +
-        " · bonuses +" +
-        eq.attack +
-        " atk, +" +
-        eq.defense +
-        " def, +" +
-        Math.round(eq.goldMult * 100) +
-        "% gold, +" +
-        Math.round(eq.xpMult * 100) +
-        "% XP (incl. talismans)"
+        " · " +
+        (bonusParts.length ? "bonuses " + bonusParts.join(", ") + " (incl. talismans)" : "no bonuses yet")
     );
 
     const frag = document.createDocumentFragment();
@@ -4667,6 +4697,8 @@
   el.backupLoad.addEventListener("click", loadBackup);
   el.backupClose.addEventListener("click", closeHeaderDialogs);
   el.tabBar.addEventListener("click", onTabClick);
+  el.tabBar.addEventListener("scroll", updateTabBarEdges, { passive: true });
+  window.addEventListener("resize", updateTabBarEdges);
   el.tabBar.addEventListener("keydown", onTabKey);
   document.addEventListener("keydown", function (ev) {
     if (ev.key === "Escape") closeHeaderDialogs();
@@ -4726,6 +4758,7 @@
     getLog: function () {
       return logLines.slice();
     },
+    showToast: showToast,
     save: save,
     QUESTS: QUESTS,
     FOES: FOES,
