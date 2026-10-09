@@ -31,6 +31,7 @@ No rule or number changed; this pass is about reading the game at a glance, on p
 - **Toasts** rise from the bottom of the screen instead of covering the header and the sticky tab bar, have one width, and a burst (such as a returning player's catch-up) shows only the newest three.
 - **Achievements** sit two to a row on phones (more on wider screens), with the progress bar on its own line.
 - Figures such as "dmg 4–10", "+12 gold" and "Requires Level 20" no longer break across lines.
+- **Thralls count one way everywhere:** the stat at the top shows bound thralls against your level cap (e.g. 8 / 20, it showed 8 / 23 with lieutenant slots added in), with lieutenants on the line below; the Thralls tab reads "Bound: 8 / 20 · Lieutenants: 0 / 3".
 - The first-scheme achievement is now **First Scheme** (it was "First Spell", which clashed with the Spellbook and the story's First Spell).
 
 ## v2.3 — Expelled

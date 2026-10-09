@@ -175,6 +175,12 @@ test("polish: rank badges, mastery bonus text, the tab bar's edge fade and the t
   assert.deepEqual(await page.$$eval("#toasts > *", (ts) => ts.map((t) => t.textContent)), ["t3", "t4", "t5"]);
   await openTab(page, "gear");
   assert.match(await page.textContent("#equip-summary"), /no bonuses yet/);
+  // The Thralls stat and the Thralls tab count the same way: bound thralls against the cap, lieutenants apart.
+  const cap = await page.evaluate(() => window.Expelled.bandCap());
+  assert.equal(await page.textContent("#stat-band-cap"), String(cap));
+  assert.match(await page.textContent("#band-hint"), /^Lieutenants 0 \/ 3 · Atk/);
+  await openTab(page, "band");
+  assert.match(await page.textContent("#band-summary"), new RegExp("Bound: 0 / " + cap + " · Lieutenants: 0 / 3"));
   assert.deepEqual(errors, []);
   await ctx.close();
 });

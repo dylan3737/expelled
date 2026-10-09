@@ -3593,9 +3593,18 @@
     }
 
     if (el.band) {
-      el.band.textContent = String(bandSize());
-      el.bandCap.textContent = String(bandCap() + NAMED_KNIGHTS.length);
-      el.bandHint.textContent = "Atk " + attackRating() + " · Def " + defenseRating();
+      // Bound thralls against the level cap; lieutenants are counted on their own, as in the Thralls tab.
+      el.band.textContent = String(bandState().recruits);
+      el.bandCap.textContent = String(bandCap());
+      el.bandHint.textContent =
+        "Lieutenants " +
+        namedKnightsOwned().length +
+        " / " +
+        NAMED_KNIGHTS.length +
+        " · Atk " +
+        attackRating() +
+        " · Def " +
+        defenseRating();
     }
   }
 
@@ -3941,17 +3950,15 @@
     const bb = bandBonuses();
     patchHtml(
       el.bandSummary,
-      "<strong>Thralls:</strong> " +
-        bandSize() +
-        " (" +
+      "<strong>Bound:</strong> " +
         band.recruits +
-        "/" +
+        " / " +
         cap +
-        " bound, " +
+        " · <strong>Lieutenants:</strong> " +
         namedKnightsOwned().length +
-        "/" +
+        " / " +
         NAMED_KNIGHTS.length +
-        " lieutenants) · <strong>+" +
+        " · <strong>+" +
         bb.attack +
         "</strong> atk · <strong>+" +
         bb.defense +
