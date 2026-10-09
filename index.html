@@ -34,12 +34,13 @@
     <section id="guide" class="panel guide" aria-labelledby="guide-heading" hidden>
       <h2 id="guide-heading">How to play</h2>
       <ol class="guide-steps">
+        <li><strong>Follow the story</strong>: your current chapter and its goal sit under your stats. Read the full tale in the Chronicle.</li>
         <li><strong>Schemes</strong> spend Mana for gold and XP. Mana returns by itself (about 1 every 12 seconds). Start with <em>Read Fortunes in the Gutter</em>.</li>
         <li><strong>Buy the Blackthorn Wand</strong> in the Sanctum as soon as you have 40 gold: +12 attack and +35% gold.</li>
         <li><strong>Duels</strong> spend Will. Each rival shows your win chance; wins pay gold, XP and loot. If you fall, visit the Apothecary.</li>
         <li><strong>Spells</strong> cost Mana too: hex a rival before a duel, quicken your schemes, raise a bone servant. Each grows stronger with use.</li>
         <li><strong>Grow stronger</strong>: enthrall servants under Thralls, equip your hoard, buy Lairs that earn gold while you're away, and study in the Sanctum.</li>
-        <li><strong>Go further</strong>: the Witchwood opens at Level 10, the Ashen Wastes at 20 and the Drowned Archive at 35. Nemeses hunt you from Level 12, and at Level 30 you can be reborn for Infamy.</li>
+        <li><strong>Go further</strong>: the Witchwood opens at Level 10, the Ashen Wastes at 20, the Drowned Archive at 35 and the Black Spire at 45. Nemeses hunt you from Level 12, and at Level 30 you can be reborn for Infamy.</li>
       </ol>
       <p class="panel-intro">A dot on a tab means something there is waiting for you. Your progress saves in this browser; use Backup to move it.</p>
       <div class="dialog-row">
@@ -126,6 +127,7 @@
 
     <div id="daily-bar" class="daily-bar" hidden></div>
     <div id="event-bar" class="daily-bar event-bar" hidden></div>
+    <div id="story-bar" class="daily-bar story-bar" hidden></div>
 
     <nav class="tabs" aria-label="Game sections">
       <div id="tab-bar" class="tab-bar" role="tablist">
@@ -150,7 +152,7 @@
         <h2 id="quests-heading">Schemes</h2>
         <p class="panel-intro">
           Spend Mana on schemes for gold and XP. Mastery ranks unlock at 5 / 15 / 40 completions, each with a secret.
-          The Witchwood opens at Level 10, the Ashen Wastes at 20, the Drowned Archive at 35. Darker schemes need
+          The Witchwood opens at Level 10, the Ashen Wastes at 20, the Drowned Archive at 35, the Black Spire at 45. Darker schemes need
           enough thralls or the right gear.
         </p>
         <div id="region-tabs" class="region-tabs" role="tablist" aria-label="Regions"></div>
@@ -234,6 +236,12 @@
         <div id="shop-list" class="card-list"></div>
       </section>
 
+      <section class="panel" id="tale" aria-labelledby="tale-heading" data-panel="chronicle" role="tabpanel">
+        <h2 id="tale-heading">The Tale</h2>
+        <p class="panel-intro">Your story so far, chapter by chapter. Each chapter's goal is shown under your stats.</p>
+        <div id="tale-list" class="tale-list"></div>
+      </section>
+
       <section class="panel" aria-labelledby="renown-heading" data-panel="chronicle" role="tabpanel">
         <h2 id="renown-heading">Infamy</h2>
         <p class="panel-intro">
@@ -262,7 +270,7 @@
     </main>
 
     <footer class="footer">
-      <span>Ruin Wars v2.1 — local save in this browser</span>
+      <span>Ruin Wars v2.2 — local save in this browser</span>
     </footer>
   </div>
   <div id="toasts" class="toasts" aria-live="polite"></div>

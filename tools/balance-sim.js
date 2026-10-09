@@ -4,7 +4,7 @@
  *
  * Usage (serve the game first, e.g. `npx --yes serve -l 8765 .`):
  *   node tools/balance-sim.js http://localhost:8765/ <maxGameHours> <out.json>
- * Env: STOP_LEVEL (default 31). Needs Playwright (`npm i -D playwright`, or set PW to its path).
+ * Env: STOP_LEVEL (default 31); SPELLS=1 lets the bot cast spells. Needs Playwright (a dev dependency).
  *
  * The bot plays nonstop and greedily (buys every upgrade, hires to cap, heals under 60% Health),
  * so its times are a lower bound for an attentive player.
@@ -15,7 +15,7 @@ const MAX_H = Number(maxHoursArg || 60);
 const STEP_MS = 10000;
 
 // One bot turn, run inside the page. Returns a snapshot for the log.
-function botTurn() {
+function botTurn(useSpells) {
   const R = window.RuinWars;
   const $ = (sel) => document.querySelector(sel);
   const $$ = (sel) => [...document.querySelectorAll(sel)];
@@ -57,6 +57,17 @@ function botTurn() {
     train[0].click();
   }
 
+  // Spells first: every buff that's ready, Blood Mending when hurt, Siphon Will when low on Will.
+  if (useSpells) {
+    tab('spells');
+    s = st();
+    const want = (id) => {
+      if (id === 'blood_mend') return s.health < s.healthMax * 0.6;
+      if (id === 'siphon_will') return s.stamina < s.staminaMax * 0.5;
+      return true;
+    };
+    enabled('[data-action=cast]').forEach((b) => { if (want(b.dataset.id)) b.click(); });
+  }
   // Heal if hurt.
   s = st();
   tab('lists');
@@ -130,7 +141,7 @@ function botTurn() {
   const t0 = Date.now();
   for (let step = 0; step * STEP_MS < MAX_H * 3600000; step++) {
     await p.clock.fastForward(STEP_MS);
-    const snap = await p.evaluate(botTurn);
+    const snap = await p.evaluate(botTurn, process.env.SPELLS === '1');
     const h = +((step + 1) * STEP_MS / 3600000).toFixed(3);
     if (!last || snap.level !== last.level) milestones['level ' + snap.level] = h;
     Object.keys(snap.kills).forEach((k) => { if (snap.kills[k] > 0 && !milestones['kill ' + k]) milestones['kill ' + k] = h; });

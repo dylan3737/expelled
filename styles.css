@@ -327,6 +327,111 @@ body {
   background: var(--mastery);
 }
 
+/* --- The story --- */
+
+.story-bar {
+  border-color: var(--rune);
+}
+
+.story-act {
+  display: block;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-dim);
+}
+
+.story-bar strong {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 1.1rem;
+  color: var(--rune);
+}
+
+.story-progress {
+  color: var(--mastery);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Jumping to the Tale lands below the sticky tab bar, not under it. */
+#tale {
+  scroll-margin-top: 4.5rem;
+}
+
+.tale-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.tale-act {
+  margin: 0.6rem 0 0;
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-dim);
+}
+
+.tale-chapter {
+  padding: 0.7rem 0.9rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+}
+
+.tale-chapter.current {
+  border-color: var(--accent-hover);
+  box-shadow: 0 0 14px var(--glow);
+}
+
+.tale-chapter h4 {
+  margin: 0 0 0.3rem;
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 1.05rem;
+  color: var(--rune);
+}
+
+.tale-chapter p {
+  margin: 0;
+  max-width: 65ch;
+}
+
+.tale-chapter .tale-goal {
+  margin-top: 0.4rem;
+  font-size: 0.85rem;
+  color: var(--text-dim);
+}
+
+.tale-chapter.done .tale-goal {
+  color: var(--good);
+}
+
+.tale-remaining,
+.tale-epilogue {
+  margin: 0.3rem 0 0;
+  font-style: italic;
+  color: var(--text-dim);
+  max-width: 65ch;
+}
+
+.tale-epilogue {
+  color: var(--text);
+}
+
+.story-toast {
+  padding: 0.5rem 1.1rem;
+  font-weight: 700;
+  color: var(--text);
+  background: var(--bg-panel);
+  border: 1px solid var(--rune);
+  border-radius: var(--radius);
+  box-shadow: 0 6px 18px var(--shadow);
+  text-align: center;
+  animation: toast 3.2s ease-out forwards;
+}
+
 /* --- Spellbook --- */
 
 .card.active-spell {
@@ -671,7 +776,8 @@ body {
   }
 
   .level-toast,
-  .achv-toast {
+  .achv-toast,
+  .story-toast {
     animation: none;
   }
 }

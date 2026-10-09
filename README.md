@@ -4,7 +4,7 @@ The rise of a dark magician, in the spirit of old Facebook *Mafia Wars*. Cast ou
 
 **Status:** private, not published. Open `index.html` locally to play (see [How to run locally](#how-to-run-locally)); [Hosting](#hosting) explains how to publish it later.
 
-**Current version: v2.1** — a **Spellbook** of eight spells cast with Mana (see [v2.1](#v21--the-spellbook)), and browser tests that run in CI. v2.0 rethemed the game from Arthurian legend to **the adventures of a dark magician** (see [v2.0](#v20--the-dark-magician)); mechanics, numbers and saves are unchanged. v1.0 added a fourth region (Lyonesse, now the Drowned Archive, Level 35), seasonal tourneys (now festivals), a balance pass driven by a simulated player (levels now take much longer), and fixes from a code review. v0.9 added a first-visit guide, achievements, a daily tribute, music and an installable app; v0.8 added seven new foes in The Lists, sound effects, and tests + deploys on GitHub Actions; v0.7 brought a gentler start and a longer end: a softer first foe plus a Tempered Blade tip, a third boss (**the Questing Beast**), and **Renown** (prestige). v0.6 made it easier to play: tabs instead of one long page, a save backup you can copy and paste, and clearer feedback (floating gains, a level-up flash, time-until-full on Energy / Stamina / Health). v0.5 deepened the economy (ranked training, region-tiered loot you can sell, odds-based bouts, quest requirements); v0.4 added Regions, Bosses, Knight Band and Collections.
+**Current version: v2.2** — a **main story** in 21 chapters and a fifth region, **the Black Spire** (see [v2.2](#v22--the-tale-and-the-black-spire)). v2.1 added a **Spellbook** of eight spells cast with Mana (see [v2.1](#v21--the-spellbook)), and browser tests that run in CI. v2.0 rethemed the game from Arthurian legend to **the adventures of a dark magician** (see [v2.0](#v20--the-dark-magician)); mechanics, numbers and saves are unchanged. v1.0 added a fourth region (Lyonesse, now the Drowned Archive, Level 35), seasonal tourneys (now festivals), a balance pass driven by a simulated player (levels now take much longer), and fixes from a code review. v0.9 added a first-visit guide, achievements, a daily tribute, music and an installable app; v0.8 added seven new foes in The Lists, sound effects, and tests + deploys on GitHub Actions; v0.7 brought a gentler start and a longer end: a softer first foe plus a Tempered Blade tip, a third boss (**the Questing Beast**), and **Renown** (prestige). v0.6 made it easier to play: tabs instead of one long page, a save backup you can copy and paste, and clearer feedback (floating gains, a level-up flash, time-until-full on Energy / Stamina / Health). v0.5 deepened the economy (ranked training, region-tiered loot you can sell, odds-based bouts, quest requirements); v0.4 added Regions, Bosses, Knight Band and Collections.
 
 ## Resources
 
@@ -20,6 +20,31 @@ The rise of a dark magician, in the spirit of old Facebook *Mafia Wars*. Cast ou
 - Energy regenerates about every **12s**; Stamina about every **18s** (slower, more Mafia Wars–like).
 - Quest cooldowns are **short on early jobs**, **long on late jobs** (up to a few minutes).
 - Fight opponent cooldowns are longer too.
+
+## v2.2 — The Tale and the Black Spire
+
+### The story
+21 chapters in five acts take the magician from the gutters of Hollowmere to the top of the Black Spire, where the Archmage of the White College signed their expulsion. The current chapter, its goal and progress sit in a bar under the stats; **Read** opens **The Tale** in the Chronicle, which shows every finished chapter and the current one (later chapters stay hidden). Finishing a chapter pays gold and opens the next; the last one shows an epilogue.
+
+| Act | Chapters | Goals |
+|-----|----------|-------|
+| I · Hollowmere | Cast Out · A Voice in the Drains · A Name in the Circle · The Burning Ledger | first scheme; Bind a Sewer Imp; 10 duels won; Steal the Expulsion Ledger |
+| II · The Witchwood | Under the Hanging Lanterns · The Witch of the Weir · The Warrant · The Coven Mother · What You Are | Level 10; the Weir ×5; the Witch-Hunter General; the Coven Mother's Glamours; the Root-Bound Grimoire |
+| III · The Ashen Wastes | The Cinder Road · An Army of the Dead · The Lich of Ashvault · The Obsidian Throne · Wyrmsong | Level 20; 25 thralls; the Lich; Claim the Obsidian Throne; the Bone Wyrm |
+| IV · The Drowned Archive | Under the Grey Sea · A Reader's Ticket · The Founder · The First Spell | Level 35; Wake the Librarians ×5; the Drowned Archmage; Read the First Spell |
+| V · The Black Spire | The Black Spire · Everything They Took · Expelled No More | Level 45; Crack the Vault of Confiscated Spells; the Archmage |
+
+Rewards grow from 100 gold to 300,000. Goals use the same checks as achievements (plus `questCount` for one scheme), so a returning magician is credited with every chapter already behind them on first load (one chronicle line). The Chronicle tab shows a dot while the current chapter is unread. Chapters live in `CHAPTERS` in `content.js` (with `ACT_NAMES` and `EPILOGUE`); a content test checks every goal points at a real scheme or nemesis and that level-gated chapters come in level order. Saved under `story: { done, seen }`, kept through rebirth; `saveVersion` is 11.
+
+### The Black Spire (Level 45)
+The White College's hidden tower, and the fifth region (`spire`).
+
+- **Schemes** (Level 45–52, 58–76 Mana, 4,000–6,500 gold, 2,900–4,300 XP, 8–10 min rests, 45–52 thralls): Break the Warded Gate, Rob the Forbidden Library, Turn the College's Students, Crack the Vault of Confiscated Spells, Walk the Hall of Mirrors, Climb to the Archmage's Study, each with three new secrets.
+- **Rivals**: Spire Sentinel (45, power 650), Bound Storm Elemental (47, 700), College Battle-Magus (49, 760), the Archmage's Shadow (51, 830).
+- **Loot**: Stormglass Wand / Staff of the Seventh Circle / the Archon's Scepter (+130 / +160 / +200 attack), Proctor's Grey Robes / Magister's Starcloak / Vestments of the Inner Circle (up to +44% gold, +150 def, +40 atk), three talismans.
+- **Nemesis — the Archmage of the White College** (Level 50): 60,000 HP, 120 HP/min regen, 14 Will per strike, counter 34–58, returns after 3 h. Kill: 90,000 gold, 30,000 XP, **Crown of the White College** (talisman: +15% gold, +15% XP, +40 atk, +40 def) and a page of **the Archmage's Codex** (grimoire: +30 attack, +30 defense, +10% gold, +10% XP).
+- **Lair**: the College's Tithe-Rolls (Level 45, 60,000 gold, +2,200 gold / 6 min).
+- **Achievements**: At the Foot of the Spire (Level 45), Expelled No More (the Archmage), The Tale Is Told (every chapter).
 
 ## v2.1 — The Spellbook
 
@@ -341,6 +366,7 @@ npm run test:browser        # browser tests: e2e/*.e2e.js
 - `tests/content.test.js` — sanity checks on `content.js`: unique ids, quests in real regions with a story beat at every mastery rank, band requirements reachable at each quest's level, 3 weapons / 3 armors / 3 relics per region, every boss drops a real unique and collection piece and has a legend, named-knight boss bonuses point at real bosses, foes get harder and pay more with level, achievements use known checks with reachable targets, and seasonal events have valid dates, real rewards and never overlap.
 
 - `e2e/game.e2e.js` — a new game and its first scheme, tabs and the remembered tab, rename / reset with `prompt()` / `confirm()` blocked, backup round-trip and rejection, an old Arthurian-era save loading with its progress and new-theme Secrets, a festival won and claimed under a fake clock, rebirth keeping Infamy / achievements / spell mastery, and the service worker reloading the game offline.
+- `e2e/story.e2e.js` — Chapter 1 to 2 and reading clears the dot, a returning save credited with chapters 1–12, the Black Spire's schemes and nemesis at Level 45, and the Archmage ending the tale with the epilogue.
 - `e2e/spells.e2e.js` — spells unlocking by level, Hex raising odds and being spent by one duel, Quicken / Blood Mending / Gilded Tongue, mastery potency and buffs wearing off, First Incantation.
 
 Every browser test also fails on any console or page error. `e2e/helpers.js` serves the repo on a local port and blocks Google Fonts so no test needs the network.
@@ -384,18 +410,18 @@ In `game.js`:
 - **Tabs / feedback** — `setTab` / `tabAlerts` / `renderTicker`; `onActionClick` snapshots gold / XP / level / health before each action and `showActionFeedback` floats the difference
 - **Backup** — `F.encodeBackup(savePayload())` / `F.decodeBackup(text)`; `load()` and backup import both go through `applySaveData(data)`
 - **Renown** — `beginNewLegend` keeps `name`, `renown`, `storyUnlocks`; `renownBonuses()` feeds `goldMultiplier` / `xpMultiplier`
-- **`save` / `load`** — `localStorage` key `ruin_wars_save_v4` (`saveVersion: 10`); falls back to legacy `ruin_wars_save_v1` and migrates. Saves happen immediately after actions, at most every ~8s from the tick when something changed, and on `visibilitychange` (hidden) / `pagehide` / `beforeunload`. The last 50 chronicle lines are saved under `log` (optional; older saves load fine without it).
+- **`save` / `load`** — `localStorage` key `ruin_wars_save_v4` (`saveVersion: 11`); falls back to legacy `ruin_wars_save_v1` and migrates. Saves happen immediately after actions, at most every ~8s from the tick when something changed, and on `visibilitychange` (hidden) / `pagehide` / `beforeunload`. The last 50 chronicle lines are saved under `log` (optional; older saves load fine without it).
 - **`window.RuinWars`** — DevTools helpers
 
 ## Save compatibility
 
-v2.1 still saves to `ruin_wars_save_v4`, now with `saveVersion: 10`; older v4 saves load as-is and gain the fields added since: `upgradeRanks: {}` (v0.5), `renown: 0` (v0.7), `achievements` / `stats` / `daily` (v0.9), `events: {}` (v1.0) and `spells` (v2.1; v2.0 added none). Levels and XP carry over unchanged, so after the v1.0 XP curve an existing knight keeps their level and simply needs more XP for the next one. A save that can't be read is copied to `ruin_wars_save_unreadable` (never overwritten) before the game starts fresh. If no v4 save exists, the v0.3 save under `ruin_wars_save_v1` is loaded and migrated: missing fields (`region`, `collections`, `collectionsRedeemed`, `bosses`, `band`, plus the older `questCounts`, `storyUnlocks`, `holdings`, `inventory`, `equipped`) get defaults. The legacy key is left untouched, so rolling back to v0.3 still works. Use **Reset** for a clean slate.
+v2.2 still saves to `ruin_wars_save_v4`, now with `saveVersion: 11`; older v4 saves load as-is and gain the fields added since: `upgradeRanks: {}` (v0.5), `renown: 0` (v0.7), `achievements` / `stats` / `daily` (v0.9), `events: {}` (v1.0), `spells` (v2.1; v2.0 added none) and `story` (v2.2). Levels and XP carry over unchanged, so after the v1.0 XP curve an existing knight keeps their level and simply needs more XP for the next one. A save that can't be read is copied to `ruin_wars_save_unreadable` (never overwritten) before the game starts fresh. If no v4 save exists, the v0.3 save under `ruin_wars_save_v1` is loaded and migrated: missing fields (`region`, `collections`, `collectionsRedeemed`, `bosses`, `band`, plus the older `questCounts`, `storyUnlocks`, `holdings`, `inventory`, `equipped`) get defaults. The legacy key is left untouched, so rolling back to v0.3 still works. Use **Reset** for a clean slate.
 
 ## Suggested next features
 
-1. A second Renown track for Lyonesse (titles past Pendragon's Champion).
+1. Factions (the covens, the dead, the Order of the Pale Flame) with standing that choices in schemes change.
 2. Gear upgrades: spend gold and duplicates to raise an item's stats.
-3. A fifth region beyond the Drowned Archive, and a nemesis for the White College itself.
+3. Drawn art for regions and nemeses, and ambient effects.
 
 ## License
 

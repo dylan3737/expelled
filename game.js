@@ -1,5 +1,5 @@
 /**
- * Ruin Wars — the rise of a dark magician (v2.1). Content tables live in content.js, pure formulas in formulas.js.
+ * Ruin Wars — the rise of a dark magician (v2.2). Content tables live in content.js, pure formulas in formulas.js.
  * Quests (Energy) across Regions + mastery/story/requirements, The Lists (Stamina/Health, odds-based
  * bouts), Bosses, Knight Band, Holdings (passive gold), Loot/Inventory (region tiers, equip, sell),
  * Collections, shop upgrades + ranked training.
@@ -13,7 +13,7 @@
   const LEGACY_SAVE_KEYS = ["ruin_wars_save_v1"];
   const UNREADABLE_SAVE_KEY = "ruin_wars_save_unreadable"; // copy of a save that failed to load
   const UPSET_ACHIEVEMENT_ODDS = 0.3; // "Against the Odds": win a bout with odds below this
-  const SAVE_VERSION = 10;
+  const SAVE_VERSION = 11;
   const TICK_MS = 1000;
   const BASE_ENERGY_MAX = 25;
   const BASE_STAMINA_MAX = 20;
@@ -90,6 +90,9 @@
     ACHIEVEMENTS,
     EVENTS,
     SPELLS,
+    CHAPTERS,
+    ACT_NAMES,
+    EPILOGUE,
   } = window.RuinWarsContent;
   const xpForLevel = F.xpForLevel;
   const formatCooldown = F.formatCooldown;
@@ -117,6 +120,7 @@
       daily: { lastDay: null, streak: 0 }, // daily tribute; kept through Renown
       events: {}, // "<event>-<year>" -> { tokens, claimed, cooldownUntil }; kept through Renown
       spells: { casts: {}, cooldownUntil: {}, active: {} }, // Spellbook; mastery (casts) kept through rebirth
+      story: { done: {}, seen: null }, // chapter id -> time finished; seen = last chapter read; kept through rebirth
       questCooldownUntil: {},
       fightCooldownUntil: {},
       questCounts: {},
@@ -805,6 +809,10 @@
     ["casts", "cooldownUntil", "active"].forEach(function (k) {
       if (!state.spells[k] || typeof state.spells[k] !== "object") state.spells[k] = {};
     });
+    // v2.2 fields
+    if (!state.story || typeof state.story !== "object") state.story = {};
+    if (!state.story.done || typeof state.story.done !== "object") state.story.done = {};
+    if (typeof state.story.seen !== "string") state.story.seen = null;
     if (!state.questCounts || typeof state.questCounts !== "object") {
       state.questCounts = {};
     }
@@ -852,8 +860,14 @@
           "from the gutters of Hollowmere. Every level, item and deed carries over under its new name."
       );
     }
-    if (migratedFrom || oldVersion < SAVE_VERSION) {
+    if (migratedFrom || oldVersion < 10) {
       addLog("New: the Spellbook. Cast spells with Mana from the Spells tab; your level decides which you know.");
+    }
+    if (migratedFrom || oldVersion < SAVE_VERSION) {
+      addLog(
+        "New: the main story, and a fifth region, the Black Spire (Level 45). Your current chapter shows under " +
+          "your stats; the whole tale is in the Chronicle."
+      );
       save();
     }
   }
@@ -1791,6 +1805,7 @@
       return;
     }
     addLog("Save loaded from a backup. Welcome back, " + state.name + ".");
+    checkStory();
     checkAchievements();
     save();
     render();
@@ -1829,6 +1844,7 @@
       daily: state.daily,
       events: state.events,
       spells: { casts: state.spells.casts, cooldownUntil: {}, active: {} },
+      story: state.story,
     };
     const finalLevel = state.level;
     state = Object.assign(defaultState(), kept);
@@ -2017,6 +2033,9 @@
     btnMusic: document.getElementById("btn-music"),
     spellList: document.getElementById("spell-list"),
     activeSpells: document.getElementById("active-spells"),
+    storyBar: document.getElementById("story-bar"),
+    tale: document.getElementById("tale"),
+    taleList: document.getElementById("tale-list"),
     ticker: document.getElementById("ticker"),
   };
 
@@ -2127,6 +2146,7 @@
     "renown-confirm": beginNewLegend,
     daily: claimDaily,
     cast: castSpell,
+    "read-story": readStory,
     "event-fight": doEventFight,
     "event-claim": claimEventReward,
   };
@@ -2139,10 +2159,13 @@
     const action = target.getAttribute("data-action");
     const before = feedbackSnapshot();
     fn(target.getAttribute("data-id"));
+    const finished = checkStory();
     const earned = checkAchievements();
     showActionFeedback(target, before, action);
-    playCue(earned.length && !(state.level > before.level) ? "achievement" : cueForAction(action, before));
-    if (earned.length) {
+    playCue(
+      (earned.length || finished.length) && !(state.level > before.level) ? "achievement" : cueForAction(action, before)
+    );
+    if (earned.length || finished.length) {
       save();
       render();
     }
@@ -2457,7 +2480,16 @@
       btn.tabIndex = on ? 0 : -1;
     });
     writePref(TAB_STORE_KEY, tabId);
+    if (tabId === "chronicle") {
+      const ch = currentChapter();
+      if (ch) state.story.seen = ch.id;
+    }
     renderTabPanels();
+    // Reading the current chapter clears its dot and its "Read new chapter" label straight away.
+    if (el.storyBar) {
+      renderTabAlerts();
+      renderStoryBar();
+    }
     renderTicker();
     // If the new tab's top is hidden under the sticky tab bar, scroll it back into view.
     const barBottom = el.tabBar.getBoundingClientRect().bottom;
@@ -2499,7 +2531,8 @@
     const ev = currentEvent();
     alerts.lists =
       !!ev && !state.fallen && ev.progress.cooldownUntil <= Date.now() && state.stamina >= EVENT_FOE_STAMINA;
-    alerts.chronicle = state.level >= RENOWN_MIN_LEVEL;
+    const chapter = currentChapter();
+    alerts.chronicle = state.level >= RENOWN_MIN_LEVEL || (!!chapter && state.story.seen !== chapter.id);
     alerts.spells = SPELLS.some(function (sp) {
       return state.level >= sp.minLevel && spellCasts(sp.id) === 0;
     });
@@ -2522,7 +2555,7 @@
     bosses: "A nemesis is ready to strike.",
     armory: "You can afford the Blackthorn Wand.",
     lists: "The festival champion is ready for you.",
-    chronicle: "You can be reborn for Infamy.",
+    chronicle: "A new chapter, or rebirth, awaits in the Chronicle.",
     spells: "You know a spell you have never cast.",
   };
 
@@ -2715,6 +2748,13 @@
       case "dailyStreak":
         cur = state.daily.streak;
         break;
+      case "questCount":
+        cur = questCount(c.quest);
+        break;
+      case "chapters":
+        cur = chaptersDone();
+        if (target === "all") target = CHAPTERS.length;
+        break;
       case "spellCasts":
         cur = Object.keys(state.spells.casts).reduce(function (sum, id) {
           return sum + state.spells.casts[id];
@@ -2836,6 +2876,160 @@
     frag.appendChild(text);
     frag.appendChild(btn);
     patchChildren(el.dailyBar, frag);
+  }
+
+  // --- The story ---
+
+  function chapterDone(id) {
+    return !!state.story.done[id];
+  }
+
+  function chaptersDone() {
+    return CHAPTERS.filter(function (ch) {
+      return chapterDone(ch.id);
+    }).length;
+  }
+
+  /** The chapter being played: the first one not finished (null once the tale is told). */
+  function currentChapter() {
+    return (
+      CHAPTERS.find(function (ch) {
+        return !chapterDone(ch.id);
+      }) || null
+    );
+  }
+
+  function chapterNumber(ch) {
+    return CHAPTERS.indexOf(ch) + 1;
+  }
+
+  /** Finish every chapter whose goal is met, in order (a returning player may finish several). */
+  function checkStory() {
+    const finished = [];
+    let ch = currentChapter();
+    while (ch) {
+      const p = achievementProgress({ check: ch.goal });
+      if (p.cur < p.target) break;
+      state.story.done[ch.id] = Date.now();
+      state.gold += ch.gold;
+      finished.push(ch);
+      ch = currentChapter();
+    }
+    if (!finished.length) return finished;
+    if (finished.length <= 2) {
+      finished.forEach(function (f) {
+        addLog("Chapter " + chapterNumber(f) + " complete: " + f.title + ". +" + f.gold + " gold.");
+        showToast("Chapter complete: " + f.title, "story-toast", 3200);
+      });
+    } else {
+      const gold = finished.reduce(function (sum, f) {
+        return sum + f.gold;
+      }, 0);
+      addLog(
+        "The tale catches up with you: chapters " +
+          chapterNumber(finished[0]) +
+          "–" +
+          chapterNumber(finished[finished.length - 1]) +
+          " are already behind you. +" +
+          gold +
+          " gold. Read them in the Chronicle."
+      );
+      showToast(finished.length + " chapters complete!", "story-toast", 3200);
+    }
+    const next = currentChapter();
+    if (next) {
+      addLog("Chapter " + chapterNumber(next) + " begins: " + next.title + ". Read it in the Chronicle.");
+    } else {
+      addLog("The tale is told. Read the ending in the Chronicle.");
+    }
+    return finished;
+  }
+
+  function readStory() {
+    setTab("chronicle");
+    if (el.tale) el.tale.scrollIntoView({ block: "start" });
+  }
+
+  function renderStoryBar() {
+    if (!el.storyBar) return;
+    const ch = currentChapter();
+    el.storyBar.hidden = !ch;
+    if (!ch) return;
+    const p = achievementProgress({ check: ch.goal });
+    const frag = document.createDocumentFragment();
+    const text = document.createElement("p");
+    text.setAttribute("data-key", "story-text");
+    text.innerHTML =
+      '<span class="story-act">' +
+      escapeHtml(ACT_NAMES[ch.act]) +
+      " · Chapter " +
+      chapterNumber(ch) +
+      "</span> <strong>" +
+      escapeHtml(ch.title) +
+      "</strong> · " +
+      escapeHtml(ch.goalText) +
+      (p.target > 1 ? ' <span class="story-progress">' + p.cur + " / " + p.target + "</span>" : "");
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "btn";
+    btn.setAttribute("data-key", "story-read");
+    btn.textContent = state.story.seen === ch.id ? "Read" : "Read new chapter";
+    actionButton(btn, "read-story");
+    frag.appendChild(text);
+    frag.appendChild(btn);
+    patchChildren(el.storyBar, frag);
+  }
+
+  function renderTale() {
+    if (!el.taleList) return;
+    const frag = document.createDocumentFragment();
+    const current = currentChapter();
+    let lastAct = null;
+    CHAPTERS.forEach(function (ch) {
+      const done = chapterDone(ch.id);
+      if (!done && ch !== current) return;
+      if (ch.act !== lastAct) {
+        lastAct = ch.act;
+        const head = document.createElement("h3");
+        head.className = "tale-act";
+        head.setAttribute("data-key", "act:" + ch.act);
+        head.textContent = ACT_NAMES[ch.act];
+        frag.appendChild(head);
+      }
+      const card = document.createElement("article");
+      card.className = "tale-chapter" + (done ? " done" : " current");
+      card.setAttribute("data-key", "chapter:" + ch.id);
+      const p = achievementProgress({ check: ch.goal });
+      card.innerHTML =
+        "<h4>Chapter " +
+        chapterNumber(ch) +
+        " · " +
+        escapeHtml(ch.title) +
+        "</h4>" +
+        "<p>" +
+        escapeHtml(ch.text) +
+        "</p>" +
+        '<p class="tale-goal">' +
+        (done ? "✓ " : "") +
+        escapeHtml(ch.goalText) +
+        (!done && p.target > 1 ? " (" + p.cur + " / " + p.target + ")" : "") +
+        ' · <span class="reward-gold">' +
+        (done ? "earned " : "+") +
+        ch.gold +
+        " gold</span></p>";
+      frag.appendChild(card);
+    });
+    const tail = document.createElement("p");
+    tail.className = current ? "tale-remaining" : "tale-epilogue";
+    tail.setAttribute("data-key", "tale-tail");
+    const left = CHAPTERS.length - chaptersDone() - (current ? 1 : 0);
+    tail.textContent = current
+      ? left > 0
+        ? left + (left === 1 ? " chapter remains" : " chapters remain") + " untold."
+        : "This is the last chapter."
+      : EPILOGUE;
+    frag.appendChild(tail);
+    patchChildren(el.taleList, frag);
   }
 
   // --- Spellbook ---
@@ -4409,7 +4603,7 @@
     holdings: [renderHoldings],
     gear: [renderInventory, renderCollections],
     armory: [renderShop],
-    chronicle: [renderRenown, renderAchievements, renderLog, renderLegends],
+    chronicle: [renderTale, renderRenown, renderAchievements, renderLog, renderLegends],
   };
 
   function renderTabPanels() {
@@ -4423,6 +4617,7 @@
     renderStatsOnly();
     renderDaily();
     renderEventBar();
+    renderStoryBar();
     renderActiveSpells();
     renderTabAlerts();
     renderTabPanels();
@@ -4495,6 +4690,7 @@
   renderSoundToggle();
   musicOn = readPref(MUSIC_PREF_KEY) === "on";
   renderMusicToggle();
+  checkStory(); // credits chapters already behind a returning player
   checkAchievements(); // credits deeds done before achievements existed
   if (!guideSeen() && state.level <= 3) el.guide.hidden = false;
   render();
@@ -4533,6 +4729,7 @@
     RENOWN_TITLES: RENOWN_TITLES,
     ACHIEVEMENTS: ACHIEVEMENTS,
     SPELLS: SPELLS,
+    CHAPTERS: CHAPTERS,
     NAMED_KNIGHTS: NAMED_KNIGHTS,
     SAVE_VERSION: SAVE_VERSION,
     attackRating: attackRating,

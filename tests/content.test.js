@@ -21,7 +21,7 @@ function assertUniqueIds(list, label) {
 }
 
 test("ids are unique within every table", () => {
-  for (const key of ["REGIONS", "QUESTS", "FOES", "HEALS", "UPGRADES", "RANKED_UPGRADES", "HOLDINGS", "LOOT", "COLLECTIONS", "BOSSES", "NAMED_KNIGHTS", "ACHIEVEMENTS", "EVENTS", "SPELLS"]) {
+  for (const key of ["REGIONS", "QUESTS", "FOES", "HEALS", "UPGRADES", "RANKED_UPGRADES", "HOLDINGS", "LOOT", "COLLECTIONS", "BOSSES", "NAMED_KNIGHTS", "ACHIEVEMENTS", "EVENTS", "SPELLS", "CHAPTERS"]) {
     assertUniqueIds(C[key], key);
   }
   assertUniqueIds(C.COLLECTIONS.flatMap((c) => c.pieces), "collection pieces");
@@ -132,8 +132,8 @@ test("holdings belong to known regions", () => {
 });
 
 test("achievements use known checks with sensible targets", () => {
-  const types = ["questsDone", "questsMastered", "level", "fightWins", "upsets", "bossKill", "band", "namedKnights", "holdings", "collections", "trainingRanks", "renown", "dailyStreak", "eventRewards", "spellCasts", "spellsMastered"];
-  const allowAll = ["questsMastered", "namedKnights", "holdings", "collections"];
+  const types = ["questsDone", "questsMastered", "level", "fightWins", "upsets", "bossKill", "band", "namedKnights", "holdings", "collections", "trainingRanks", "renown", "dailyStreak", "eventRewards", "spellCasts", "spellsMastered", "chapters"];
+  const allowAll = ["questsMastered", "namedKnights", "holdings", "collections", "chapters"];
   C.ACHIEVEMENTS.forEach((a) => {
     assert.ok(a.name && a.desc, a.id + ": needs a name and description");
     assert.ok(types.includes(a.check.type), a.id + ": unknown check " + a.check.type);
@@ -193,4 +193,32 @@ test("spells: known effects, a way to end every buff, sensible costs", () => {
     // At Master potency (×1.75) a cooldown cut must still leave some cooldown.
     if (sp.effect.cooldownCut) assert.ok(sp.effect.cooldownCut * F.spellPotency(3) < 1, sp.id);
   });
+});
+
+test("story chapters: real goals, in five acts, and each one reachable after the one before", () => {
+  const goalTypes = ["questsDone", "questCount", "fightWins", "level", "bossKill", "band"];
+  // The lowest level at which a chapter's goal can be met (null when no level gates it).
+  const unlockLevel = (g) => {
+    if (g.type === "level") return g.target;
+    if (g.type === "questCount") return C.QUESTS.find((q) => q.id === g.quest).minLevel;
+    if (g.type === "bossKill") return C.BOSSES.find((b) => b.id === g.target).minLevel;
+    return null;
+  };
+  let prevLevel = 1;
+  C.CHAPTERS.forEach((ch) => {
+    assert.ok(ch.title && ch.text && ch.goalText, ch.id + ": needs a title, text and goal text");
+    assert.ok(C.ACT_NAMES[ch.act], ch.id + ": unknown act " + ch.act);
+    assert.ok(ch.gold > 0, ch.id + ": reward");
+    const g = ch.goal;
+    assert.ok(goalTypes.includes(g.type), ch.id + ": unknown goal " + g.type);
+    if (g.type === "questCount") assert.ok(C.QUESTS.some((q) => q.id === g.quest), ch.id + ": unknown scheme " + g.quest);
+    if (g.type === "bossKill") assert.ok(C.BOSSES.some((b) => b.id === g.target), ch.id + ": unknown nemesis " + g.target);
+    if (g.type !== "bossKill") assert.ok(Number.isInteger(g.target) && g.target > 0, ch.id + ": target");
+    const lv = unlockLevel(g);
+    if (lv === null) return;
+    assert.ok(lv >= prevLevel, ch.id + " (Lv " + lv + ") comes after a chapter needing Lv " + prevLevel);
+    prevLevel = lv;
+  });
+  assert.deepEqual([...new Set(C.CHAPTERS.map((c) => c.act))], ["I", "II", "III", "IV", "V"]);
+  assert.ok(C.EPILOGUE.length > 0);
 });
