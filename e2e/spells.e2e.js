@@ -34,7 +34,7 @@ test("spells unlock by level, and a never-cast spell marks the tab", async () =>
 test("Hex raises duel odds, costs Mana, is used up by one duel, and then rests", async () => {
   const { ctx, page, errors } = await openGame(browser, server.url, { save: mage() });
   const odds = () =>
-    page.evaluate(() => Math.round(window.RuinWars.fightWinChance(window.RuinWars.FOES.find((f) => f.id === "black_guard")) * 100));
+    page.evaluate(() => Math.round(window.Expelled.fightWinChance(window.Expelled.FOES.find((f) => f.id === "black_guard")) * 100));
   const plain = await odds();
   await openTab(page, "spells");
   const manaBefore = (await state(page)).energy;
@@ -70,7 +70,7 @@ test("Quicken shortens scheme rests; Blood Mending heals; Gilded Tongue raises g
   assert.equal(s.health, Math.min(s.healthMax, 50 + Math.round(s.healthMax * 0.3)));
   assert.ok((await patrolGold()) > goldBefore, "Gilded Tongue shows on scheme rewards");
   await page.click('[data-action=quest][data-id="patrol"]');
-  const rest = await page.evaluate(() => window.RuinWars.getState().questCooldownUntil.patrol - Date.now());
+  const rest = await page.evaluate(() => window.Expelled.getState().questCooldownUntil.patrol - Date.now());
   assert.ok(rest <= 12000 * 0.6 + 50, "a 12s rest drops by 40% (was " + rest + "ms)");
   assert.match(await page.textContent("#active-spells"), /Quicken the Hours/);
   assert.deepEqual(errors, []);

@@ -1,17 +1,18 @@
 /**
- * Ruin Wars — the rise of a dark magician (v2.2). Content tables live in content.js, pure formulas in formulas.js.
+ * Expelled — the rise of a dark magician (v2.3; called Ruin Wars until v2.2). Content tables live in content.js, pure formulas in formulas.js.
  * Quests (Energy) across Regions + mastery/story/requirements, The Lists (Stamina/Health, odds-based
  * bouts), Bosses, Knight Band, Holdings (passive gold), Loot/Inventory (region tiers, equip, sell),
  * Collections, shop upgrades + ranked training.
- * Persist: localStorage SAVE_KEY (legacy v0.3 key migrated on load)
+ * Persist: localStorage SAVE_KEY (Ruin Wars-era keys are read on first load, and left untouched)
  */
 
 (function () {
   "use strict";
 
-  const SAVE_KEY = "ruin_wars_save_v4";
-  const LEGACY_SAVE_KEYS = ["ruin_wars_save_v1"];
-  const UNREADABLE_SAVE_KEY = "ruin_wars_save_unreadable"; // copy of a save that failed to load
+  const SAVE_KEY = "expelled_save_v1";
+  const RUIN_WARS_SAVE_KEY = "ruin_wars_save_v4"; // the game was called Ruin Wars until v2.2
+  const LEGACY_SAVE_KEYS = ["ruin_wars_save_v1"]; // v0.3 and earlier
+  const UNREADABLE_SAVE_KEY = "expelled_save_unreadable"; // copy of a save that failed to load
   const UPSET_ACHIEVEMENT_ODDS = 0.3; // "Against the Odds": win a bout with odds below this
   const SAVE_VERSION = 11;
   const TICK_MS = 1000;
@@ -71,7 +72,7 @@
 
   // --- Content tables (content.js) and pure formulas (formulas.js) ---
 
-  const F = window.RuinWarsFormulas;
+  const F = window.ExpelledFormulas;
   const {
     REGIONS,
     QUESTS,
@@ -93,7 +94,7 @@
     CHAPTERS,
     ACT_NAMES,
     EPILOGUE,
-  } = window.RuinWarsContent;
+  } = window.ExpelledContent;
   const xpForLevel = F.xpForLevel;
   const formatCooldown = F.formatCooldown;
   const upsetMultiplier = F.upsetMultiplier;
@@ -737,6 +738,12 @@
     try {
       raw = localStorage.getItem(SAVE_KEY);
       let migratedFrom = null;
+      let carriedOver = false;
+      if (!raw) {
+        // A save from when the game was called Ruin Wars carries over (its copy is left untouched)
+        raw = localStorage.getItem(RUIN_WARS_SAVE_KEY);
+        carriedOver = !!raw;
+      }
       if (!raw) {
         // v0.3 and earlier saved under the legacy key — migrate (legacy copy is left untouched)
         for (let i = 0; i < LEGACY_SAVE_KEYS.length && !raw; i++) {
@@ -748,9 +755,13 @@
       const data = JSON.parse(raw);
       if (!data || typeof data !== "object") return;
       applySaveData(data, migratedFrom);
+      if (carriedOver) {
+        addLog("Ruin Wars is now called Expelled. Your magician and all their progress came with you.");
+        save();
+      }
     } catch (e) {
       // Starting fresh would overwrite the unreadable save on the next save(), so keep a copy first.
-      console.error("Ruin Wars: the save could not be loaded; a copy was kept under " + UNREADABLE_SAVE_KEY, e);
+      console.error("Expelled: the save could not be loaded; a copy was kept under " + UNREADABLE_SAVE_KEY, e);
       try {
         // Keep the first unreadable save: a later failure must not replace it.
         if (raw && !localStorage.getItem(UNREADABLE_SAVE_KEY)) localStorage.setItem(UNREADABLE_SAVE_KEY, raw);
@@ -1788,7 +1799,7 @@
     }
     if (!data) {
       setBackupStatus(
-        "That isn't a Ruin Wars save. Paste the whole code, starting with " + F.BACKUP_PREFIX,
+        "That isn't an Expelled save. Paste the whole code, starting with " + F.BACKUP_PREFIX,
         true
       );
       el.backupText.focus();
@@ -2173,14 +2184,16 @@
 
   // --- Sound: short synthesized cues (Web Audio), off by default ---
 
-  const SOUND_PREF_KEY = "ruin_wars_sound"; // per-browser preference, not part of the save
+  const SOUND_PREF_KEY = "expelled_sound"; // per-browser preference, not part of the save
   let soundOn = false;
   let audioCtx = null;
 
   /** Per-browser settings (not part of the save). Storage may be blocked, so failures are ignored. */
   function readPref(key) {
     try {
-      return localStorage.getItem(key);
+      // Fall back to the same preference saved while the game was called Ruin Wars
+      const v = localStorage.getItem(key);
+      return v !== null ? v : localStorage.getItem(key.replace(/^expelled_/, "ruin_wars_"));
     } catch (e) {
       return null;
     }
@@ -2317,7 +2330,7 @@
 
   // --- Music: a slow generated loop (drone chords + sparse harp notes), off by default ---
 
-  const MUSIC_PREF_KEY = "ruin_wars_music"; // per-browser preference, not part of the save
+  const MUSIC_PREF_KEY = "expelled_music"; // per-browser preference, not part of the save
   const MUSIC_BAR_S = 4.8; // seconds per chord
   // D harmonic minor: Dm – B♭ – Gm – A (the major A pulls back to Dm with a little menace),
   // as [root, fifth, third] in Hz, and the notes the harp may pick.
@@ -2457,7 +2470,7 @@
   // --- Tabs ---
 
   const TAB_IDS = ["quests", "spells", "lists", "bosses", "band", "holdings", "gear", "armory", "chronicle"];
-  const TAB_STORE_KEY = "ruin_wars_tab"; // per-browser convenience, not part of the save
+  const TAB_STORE_KEY = "expelled_tab"; // per-browser convenience, not part of the save
   let currentTab = "quests";
 
   function initialTab() {
@@ -3480,7 +3493,7 @@
 
   // --- How to play ---
 
-  const GUIDE_SEEN_KEY = "ruin_wars_guide_seen"; // per-browser, not part of the save
+  const GUIDE_SEEN_KEY = "expelled_guide_seen"; // per-browser, not part of the save
 
   function guideSeen() {
     return readPref(GUIDE_SEEN_KEY) === "1";
@@ -4706,7 +4719,7 @@
     }
   }
 
-  window.RuinWars = {
+  window.Expelled = {
     getState: function () {
       return Object.assign({}, state);
     },

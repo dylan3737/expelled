@@ -103,6 +103,13 @@ test("decodeBackup accepts raw JSON and rejects things that aren't saves", () =>
   assert.throws(() => F.decodeBackup(F.BACKUP_PREFIX + "%%%"));
 });
 
+test("backup codes from when the game was called Ruin Wars still load", () => {
+  const save = { name: "Morwen", level: 9, gold: 77 };
+  assert.equal(F.BACKUP_PREFIX, "EX1.");
+  const old = "RW1." + F.encodeBackup(save).slice(F.BACKUP_PREFIX.length);
+  assert.deepEqual(F.decodeBackup(old), save);
+});
+
 test("dayKey uses the local calendar date", () => {
   assert.equal(F.dayKey(new Date(2026, 0, 5, 23, 59)), "2026-01-05");
   assert.equal(F.dayKey(new Date(2026, 11, 31, 0, 1)), "2026-12-31");

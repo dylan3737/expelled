@@ -1,18 +1,18 @@
 /**
- * Ruin Wars — content tables: regions, schemes (QUESTS), story, duel foes, nemeses (BOSSES),
+ * Expelled — content tables: regions, schemes (QUESTS), story, duel foes, nemeses (BOSSES),
  * thralls' lieutenants (NAMED_KNIGHTS), sanctum, lairs (HOLDINGS), loot, grimoires (COLLECTIONS).
  * Pure data: tune balance here; game.js holds the rules.
  *
  * Ids (and table names) date from the game's first, Arthurian theme and are kept so existing saves
  * carry over: region `camelot` is Hollowmere, quest `grail` is Steal the Expulsion Ledger, boss
  * `green_knight` is the Witch-Hunter General, and so on. Only the player-facing text changed.
- * Loaded in the browser as window.RuinWarsContent, and in Node via require() for tests.
+ * Loaded in the browser as window.ExpelledContent, and in Node via require() for tests.
  */
 
 (function (root, factory) {
   const api = factory();
   if (typeof module === "object" && module.exports) module.exports = api;
-  else root.RuinWarsContent = api;
+  else root.ExpelledContent = api;
 })(typeof self !== "undefined" ? self : this, function () {
   "use strict";
 

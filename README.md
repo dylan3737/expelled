@@ -1,10 +1,10 @@
-# Ruin Wars
+# Expelled
 
 The rise of a dark magician, in the spirit of old Facebook *Mafia Wars*. Cast out of the White College, you scheme your way up from the gutters of Hollowmere: spend **Mana** on schemes across **four regions** (with **mastery** and **secrets**), **Will** on duels and **nemeses**, manage **Health**, bind **thralls**, earn **gold** and **XP**, buy **lairs** for passive income, hoard **loot**, bind **grimoires**, and be reborn for **Infamy**. No backend: pure static HTML/CSS/JS with `localStorage` saves.
 
 **Status:** private, not published. Open `index.html` locally to play (see [How to run locally](#how-to-run-locally)); [Hosting](#hosting) explains how to publish it later.
 
-**Current version: v2.2** — a **main story** in 21 chapters and a fifth region, **the Black Spire** (see [v2.2](#v22--the-tale-and-the-black-spire)). v2.1 added a **Spellbook** of eight spells cast with Mana (see [v2.1](#v21--the-spellbook)), and browser tests that run in CI. v2.0 rethemed the game from Arthurian legend to **the adventures of a dark magician** (see [v2.0](#v20--the-dark-magician)); mechanics, numbers and saves are unchanged. v1.0 added a fourth region (Lyonesse, now the Drowned Archive, Level 35), seasonal tourneys (now festivals), a balance pass driven by a simulated player (levels now take much longer), and fixes from a code review. v0.9 added a first-visit guide, achievements, a daily tribute, music and an installable app; v0.8 added seven new foes in The Lists, sound effects, and tests + deploys on GitHub Actions; v0.7 brought a gentler start and a longer end: a softer first foe plus a Tempered Blade tip, a third boss (**the Questing Beast**), and **Renown** (prestige). v0.6 made it easier to play: tabs instead of one long page, a save backup you can copy and paste, and clearer feedback (floating gains, a level-up flash, time-until-full on Energy / Stamina / Health). v0.5 deepened the economy (ranked training, region-tiered loot you can sell, odds-based bouts, quest requirements); v0.4 added Regions, Bosses, Knight Band and Collections.
+**Current version: v2.3** — the game has its own name and repo. Until v2.2 it was the dark-magician branch of **Ruin Wars**; Ruin Wars itself went back to its Arthurian v1.0 in its own repo (see [v2.3](#v23--expelled)). v2.2 added a **main story** in 21 chapters and a fifth region, **the Black Spire** (see [v2.2](#v22--the-tale-and-the-black-spire)). v2.1 added a **Spellbook** of eight spells cast with Mana (see [v2.1](#v21--the-spellbook)), and browser tests that run in CI. v2.0 rethemed the game from Arthurian legend to **the adventures of a dark magician** (see [v2.0](#v20--the-dark-magician)); mechanics, numbers and saves are unchanged. v1.0 added a fourth region (Lyonesse, now the Drowned Archive, Level 35), seasonal tourneys (now festivals), a balance pass driven by a simulated player (levels now take much longer), and fixes from a code review. v0.9 added a first-visit guide, achievements, a daily tribute, music and an installable app; v0.8 added seven new foes in The Lists, sound effects, and tests + deploys on GitHub Actions; v0.7 brought a gentler start and a longer end: a softer first foe plus a Tempered Blade tip, a third boss (**the Questing Beast**), and **Renown** (prestige). v0.6 made it easier to play: tabs instead of one long page, a save backup you can copy and paste, and clearer feedback (floating gains, a level-up flash, time-until-full on Energy / Stamina / Health). v0.5 deepened the economy (ranked training, region-tiered loot you can sell, odds-based bouts, quest requirements); v0.4 added Regions, Bosses, Knight Band and Collections.
 
 ## Resources
 
@@ -20,6 +20,15 @@ The rise of a dark magician, in the spirit of old Facebook *Mafia Wars*. Cast ou
 - Energy regenerates about every **12s**; Stamina about every **18s** (slower, more Mafia Wars–like).
 - Quest cooldowns are **short on early jobs**, **long on late jobs** (up to a few minutes).
 - Fight opponent cooldowns are longer too.
+
+## v2.3 — Expelled
+
+The dark-magician game split off from Ruin Wars into this repo, under its own name. Nothing in play changed.
+
+- **Your save carries over.** Expelled saves to `expelled_save_v1`. On first load with no Expelled save, it reads the Ruin Wars save (`ruin_wars_save_v4`), says so once in the chronicle, and saves it under the new key; the old copy is left untouched.
+- **Preferences carry over too:** the `expelled_tab`, `expelled_sound`, `expelled_music` and `expelled_guide_seen` keys fall back to their `ruin_wars_*` versions.
+- **Backup codes** now start `EX1.`; codes copied under Ruin Wars (`RW1.`) still load.
+- Script globals are `window.Expelled`, `window.ExpelledContent` and `window.ExpelledFormulas`.
 
 ## v2.2 — The Tale and the Black Spire
 
@@ -411,12 +420,12 @@ In `game.js`:
 - **Tabs / feedback** — `setTab` / `tabAlerts` / `renderTicker`; `onActionClick` snapshots gold / XP / level / health before each action and `showActionFeedback` floats the difference
 - **Backup** — `F.encodeBackup(savePayload())` / `F.decodeBackup(text)`; `load()` and backup import both go through `applySaveData(data)`
 - **Renown** — `beginNewLegend` keeps `name`, `renown`, `storyUnlocks`; `renownBonuses()` feeds `goldMultiplier` / `xpMultiplier`
-- **`save` / `load`** — `localStorage` key `ruin_wars_save_v4` (`saveVersion: 11`); falls back to legacy `ruin_wars_save_v1` and migrates. Saves happen immediately after actions, at most every ~8s from the tick when something changed, and on `visibilitychange` (hidden) / `pagehide` / `beforeunload`. The last 50 chronicle lines are saved under `log` (optional; older saves load fine without it).
+- **`save` / `load`** — `localStorage` key `expelled_save_v1` (`saveVersion: 11`); falls back to the Ruin Wars-era `ruin_wars_save_v4`, then legacy `ruin_wars_save_v1`, and migrates. Saves happen immediately after actions, at most every ~8s from the tick when something changed, and on `visibilitychange` (hidden) / `pagehide` / `beforeunload`. The last 50 chronicle lines are saved under `log` (optional; older saves load fine without it).
 - **`window.RuinWars`** — DevTools helpers
 
 ## Save compatibility
 
-v2.2 still saves to `ruin_wars_save_v4`, now with `saveVersion: 11`; older v4 saves load as-is and gain the fields added since: `upgradeRanks: {}` (v0.5), `renown: 0` (v0.7), `achievements` / `stats` / `daily` (v0.9), `events: {}` (v1.0), `spells` (v2.1; v2.0 added none) and `story` (v2.2). Levels and XP carry over unchanged, so after the v1.0 XP curve an existing knight keeps their level and simply needs more XP for the next one. A save that can't be read is copied to `ruin_wars_save_unreadable` (never overwritten) before the game starts fresh. If no v4 save exists, the v0.3 save under `ruin_wars_save_v1` is loaded and migrated: missing fields (`region`, `collections`, `collectionsRedeemed`, `bosses`, `band`, plus the older `questCounts`, `storyUnlocks`, `holdings`, `inventory`, `equipped`) get defaults. The legacy key is left untouched, so rolling back to v0.3 still works. Use **Reset** for a clean slate.
+v2.3 saves to `expelled_save_v1` with `saveVersion: 11`. With no Expelled save, it reads the Ruin Wars-era `ruin_wars_save_v4` (see [v2.3](#v23--expelled)). Older saves load as-is and gain the fields added since: `upgradeRanks: {}` (v0.5), `renown: 0` (v0.7), `achievements` / `stats` / `daily` (v0.9), `events: {}` (v1.0), `spells` (v2.1; v2.0 added none) and `story` (v2.2). Levels and XP carry over unchanged, so after the v1.0 XP curve an existing knight keeps their level and simply needs more XP for the next one. A save that can't be read is copied to `expelled_save_unreadable` (never overwritten) before the game starts fresh. If neither exists, the v0.3 save under `ruin_wars_save_v1` is loaded and migrated: missing fields (`region`, `collections`, `collectionsRedeemed`, `bosses`, `band`, plus the older `questCounts`, `storyUnlocks`, `holdings`, `inventory`, `equipped`) get defaults. The legacy key is left untouched, so rolling back to v0.3 still works. Use **Reset** for a clean slate.
 
 ## Suggested next features
 
@@ -426,4 +435,4 @@ v2.2 still saves to `ruin_wars_save_v4`, now with `saveVersion: 11`; older v4 sa
 
 ## License
 
-Starter code for Dylan — use freely in the Ruin Wars project.
+Starter code for Dylan — use freely in the Expelled project.

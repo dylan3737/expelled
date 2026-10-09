@@ -69,7 +69,7 @@ test("a save backup round-trips, and text that isn't a save is rejected", async 
   await page.click("#btn-backup");
   await page.click("#backup-copy");
   const code = await page.inputValue("#backup-text");
-  assert.ok(code.startsWith("RW1."));
+  assert.ok(code.startsWith("EX1."));
   await page.click("#backup-close");
   await page.click("#btn-reset");
   await page.click("#reset-yes");
@@ -77,7 +77,7 @@ test("a save backup round-trips, and text that isn't a save is rejected", async 
   await page.click("#btn-backup");
   await page.fill("#backup-text", "not a save");
   await page.click("#backup-load");
-  assert.match(await page.textContent("#backup-status"), /isn't a Ruin Wars save/);
+  assert.match(await page.textContent("#backup-status"), /isn't an Expelled save/);
   assert.equal((await state(page)).level, 1, "a bad code changes nothing");
   await page.fill("#backup-text", code);
   await page.click("#backup-load");
@@ -115,6 +115,30 @@ test("an old Arthurian-era save keeps its progress and reads in the new theme", 
   await openTab(page, "chronicle");
   const secrets = await page.$$eval("#legends-list .legend-card h4", (hs) => hs.map((h) => h.textContent));
   assert.deepEqual(secrets, ["Nemesis Fallen — The Witch-Hunter General", "Adept — Read Fortunes in the Gutter"]);
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
+test("a save from when the game was called Ruin Wars carries over, with its preferences", async () => {
+  const { ctx, page, errors } = await openGame(browser, server.url, {
+    save: { name: "Morwen", level: 14, gold: 4321, saveVersion: 11 },
+    saveKey: "ruin_wars_save_v4",
+  });
+  const s = await state(page);
+  assert.equal(s.name, "Morwen");
+  assert.equal(s.level, 14);
+  assert.ok((await log(page)).some((l) => l.startsWith("Ruin Wars is now called Expelled")));
+  const stored = await page.evaluate(() => [localStorage.getItem("expelled_save_v1"), localStorage.getItem("ruin_wars_save_v4")]);
+  assert.equal(JSON.parse(stored[0]).name, "Morwen", "now saved under the new key");
+  assert.ok(stored[1], "the old copy is left alone");
+  await page.evaluate(() => {
+    // as a returning player has it: only the Ruin Wars-era preference exists
+    localStorage.removeItem("expelled_tab");
+    localStorage.setItem("ruin_wars_tab", "gear");
+  });
+  await page.reload();
+  assert.equal(await page.evaluate(() => [...document.querySelectorAll("[data-panel]")].find((p) => !p.hidden).dataset.panel), "gear");
+  assert.ok(!(await log(page)).filter((l) => l.startsWith("Ruin Wars is now called Expelled")).slice(1).length, "said only once");
   assert.deepEqual(errors, []);
   await ctx.close();
 });
@@ -169,11 +193,11 @@ test("the hosted game installs a service worker and reloads offline", async () =
   const { ctx, page, errors } = await openGame(browser, server.url);
   await page.evaluate(() => navigator.serviceWorker.ready);
   await page.reload(); // now controlled by the worker, which caches what it serves
-  await page.waitForFunction(() => typeof window.RuinWars === "object");
+  await page.waitForFunction(() => typeof window.Expelled === "object");
   await ctx.setOffline(true);
   await page.reload();
-  await page.waitForFunction(() => typeof window.RuinWars === "object");
-  assert.equal(await page.title(), "Ruin Wars");
+  await page.waitForFunction(() => typeof window.Expelled === "object");
+  assert.equal(await page.title(), "Expelled");
   await ctx.setOffline(false);
   assert.deepEqual(errors, []);
   await ctx.close();

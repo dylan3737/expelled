@@ -1,12 +1,12 @@
 /**
- * Ruin Wars — pure formulas (no DOM, no game state).
- * Loaded in the browser as window.RuinWarsFormulas, and in Node via require() for tests.
+ * Expelled — pure formulas (no DOM, no game state).
+ * Loaded in the browser as window.ExpelledFormulas, and in Node via require() for tests.
  */
 
 (function (root, factory) {
   const api = factory();
   if (typeof module === "object" && module.exports) module.exports = api;
-  else root.RuinWarsFormulas = api;
+  else root.ExpelledFormulas = api;
 })(typeof self !== "undefined" ? self : this, function () {
   "use strict";
 
@@ -19,7 +19,8 @@
   const BAND_CAP_MAX = 60;
   const BAND_HIRE_BASE = 30; // gold for the first hire; +BAND_HIRE_STEP per recruit already in the band
   const BAND_HIRE_STEP = 20;
-  const BACKUP_PREFIX = "RW1.";
+  const BACKUP_PREFIX = "EX1.";
+  const LEGACY_BACKUP_PREFIXES = ["RW1."]; // codes saved while the game was called Ruin Wars
   const DAILY_STREAK_MAX = 7; // the daily tribute grows for 7 days in a row, then stays at that size
 
   /**
@@ -92,7 +93,7 @@
     return Math.max(0, (max - cur) * intervalMs - (accMs || 0));
   }
 
-  /** A save object as a one-line backup code: RW1. + base64 of the UTF-8 JSON. */
+  /** A save object as a one-line backup code: EX1. + base64 of the UTF-8 JSON. */
   function encodeBackup(payload) {
     const bytes = new TextEncoder().encode(JSON.stringify(payload));
     let bin = "";
@@ -101,14 +102,17 @@
   }
 
   /**
-   * Accepts a backup code (RW1.…) or raw save JSON. Returns the save object, or null if it isn't one.
+   * Accepts a backup code (EX1.… or the older RW1.…) or raw save JSON. Returns the save object, or null if it isn't one.
    * Throws on text that isn't valid base64 / JSON.
    */
   function decodeBackup(text) {
     const trimmed = String(text || "").trim();
     let json = trimmed;
-    if (trimmed.indexOf(BACKUP_PREFIX) === 0) {
-      const bin = atob(trimmed.slice(BACKUP_PREFIX.length).replace(/\s+/g, ""));
+    const prefix = [BACKUP_PREFIX].concat(LEGACY_BACKUP_PREFIXES).find(function (p) {
+      return trimmed.indexOf(p) === 0;
+    });
+    if (prefix) {
+      const bin = atob(trimmed.slice(prefix.length).replace(/\s+/g, ""));
       const bytes = new Uint8Array(bin.length);
       for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
       json = new TextDecoder().decode(bytes);
@@ -201,6 +205,7 @@
     FIGHT_ODDS_MIN: FIGHT_ODDS_MIN,
     FIGHT_ODDS_MAX: FIGHT_ODDS_MAX,
     BACKUP_PREFIX: BACKUP_PREFIX,
+    LEGACY_BACKUP_PREFIXES: LEGACY_BACKUP_PREFIXES,
     xpForLevel: xpForLevel,
     questCooldownMs: questCooldownMs,
     formatCooldown: formatCooldown,

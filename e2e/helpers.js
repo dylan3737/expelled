@@ -67,19 +67,22 @@ async function openGame(browser, baseUrl, opts = {}) {
     });
   }
   if (opts.save) {
-    await page.addInitScript((save) => {
-      if (sessionStorage.getItem("e2e-seeded")) return;
-      sessionStorage.setItem("e2e-seeded", "1");
-      localStorage.setItem("ruin_wars_save_v4", JSON.stringify(Object.assign({ lastTick: Date.now() }, save)));
-    }, opts.save);
+    await page.addInitScript(
+      ([save, key]) => {
+        if (sessionStorage.getItem("e2e-seeded")) return;
+        sessionStorage.setItem("e2e-seeded", "1");
+        localStorage.setItem(key, JSON.stringify(Object.assign({ lastTick: Date.now() }, save)));
+      },
+      [opts.save, opts.saveKey || "expelled_save_v1"]
+    );
   }
   await page.goto(baseUrl);
-  await page.waitForFunction(() => typeof window.RuinWars === "object");
+  await page.waitForFunction(() => typeof window.Expelled === "object");
   return { ctx, page, errors };
 }
 
-const state = (page) => page.evaluate(() => window.RuinWars.getState());
-const log = (page) => page.evaluate(() => window.RuinWars.getLog());
+const state = (page) => page.evaluate(() => window.Expelled.getState());
+const log = (page) => page.evaluate(() => window.Expelled.getLog());
 const openTab = (page, id) => page.click('.tab[data-tab="' + id + '"]');
 
 module.exports = { startServer, launch, openGame, state, log, openTab };

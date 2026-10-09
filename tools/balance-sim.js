@@ -16,7 +16,7 @@ const STEP_MS = 10000;
 
 // One bot turn, run inside the page. Returns a snapshot for the log.
 function botTurn(useSpells) {
-  const R = window.RuinWars;
+  const R = window.Expelled;
   const $ = (sel) => document.querySelector(sel);
   const $$ = (sel) => [...document.querySelectorAll(sel)];
   const tab = (id) => $('.tab[data-tab="' + id + '"]').click();

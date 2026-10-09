@@ -1,10 +1,10 @@
 /**
- * Ruin Wars service worker: lets the hosted game be installed and played offline.
+ * Expelled service worker: lets the hosted game be installed and played offline.
  * Network first, so every visit online gets the latest version; the cache is the offline fallback.
  * The deploy replaces __BUILD__ with the commit, so each release starts a fresh cache.
  */
 
-const CACHE = "ruin-wars-__BUILD__";
+const CACHE = "expelled-__BUILD__";
 const APP_FILES = [
   "./",
   "index.html",
