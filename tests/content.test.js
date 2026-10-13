@@ -254,3 +254,18 @@ test("story chapters: real goals, in five acts, and each one reachable after the
   assert.deepEqual([...new Set(C.CHAPTERS.map((c) => c.act))], ["I", "II", "III", "IV", "V"]);
   assert.ok(C.EPILOGUE.length > 0);
 });
+
+test("art: every region, nemesis and faction has a sigil, and each is a well-formed inline SVG", () => {
+  const A = require("../art.js");
+  const check = (table, ids, what) => {
+    assert.deepEqual(Object.keys(table).sort(), ids.slice().sort(), what + " sigils match the content");
+    ids.forEach((id) => {
+      const s = table[id];
+      assert.match(s, /^<svg viewBox="0 0 64 64" aria-hidden="true"[^>]*>.*<\/svg>$/s, what + " " + id);
+      assert.ok(!/<script|on\w+=/i.test(s), what + " " + id + ": no script in art");
+    });
+  };
+  check(A.REGION_SIGILS, C.REGIONS.map((r) => r.id), "region");
+  check(A.NEMESIS_SIGILS, C.BOSSES.map((b) => b.id), "nemesis");
+  check(A.FACTION_SIGILS, C.FACTIONS.map((f) => f.id), "faction");
+});

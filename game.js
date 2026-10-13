@@ -102,6 +102,8 @@
     FACTIONS,
     CROSSROADS,
   } = window.ExpelledContent;
+  // Sigils are decoration: the game still runs if art.js didn't load.
+  const ART = window.ExpelledArt || { REGION_SIGILS: {}, NEMESIS_SIGILS: {}, FACTION_SIGILS: {} };
   const xpForLevel = F.xpForLevel;
   const formatCooldown = F.formatCooldown;
   const upsetMultiplier = F.upsetMultiplier;
@@ -3221,6 +3223,7 @@
       // The meter runs from -100 (left) to +100 (right), filled from the middle.
       const pct = Math.abs(st) / 2;
       card.innerHTML =
+        sigil(ART.FACTION_SIGILS[f.id], "faction-sigil") +
         '<div class="card-body">' +
         "<h3>" +
         escapeHtml(f.name) +
@@ -3997,7 +4000,22 @@
       frag.appendChild(btn);
     });
     patchChildren(el.regionTabs, frag);
-    if (el.regionIntro) el.regionIntro.textContent = cur.desc;
+    if (el.regionIntro && el.regionIntro.getAttribute("data-region") !== cur.id) {
+      el.regionIntro.setAttribute("data-region", cur.id);
+      el.regionIntro.innerHTML =
+        sigil(ART.REGION_SIGILS[cur.id], "region-sigil") + '<span class="region-desc">' + escapeHtml(cur.desc) + "</span>";
+    }
+  }
+
+  /** A sigil's markup, or nothing if there isn't one. */
+  function sigil(markup, className) {
+    return markup ? '<span class="sigil ' + className + '">' + markup + "</span>" : "";
+  }
+
+  /** Tint the sky (and its drifting motes) for the region you are scheming in. */
+  function renderSky() {
+    const id = currentRegion().id;
+    if (document.body.getAttribute("data-region") !== id) document.body.setAttribute("data-region", id);
   }
 
   function renderQuests() {
@@ -4249,6 +4267,7 @@
       card.setAttribute("data-boss", def.id);
       card.setAttribute("data-key", "boss:" + def.id);
       card.innerHTML =
+        sigil(ART.NEMESIS_SIGILS[def.id], "nemesis-sigil") +
         '<div class="card-body">' +
         "<h3>" +
         escapeHtml(def.name) +
@@ -5067,6 +5086,7 @@
     renderDaily();
     renderEventBar();
     renderStoryBar();
+    renderSky();
     renderActiveSpells();
     renderTabAlerts();
     renderTabPanels();

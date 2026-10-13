@@ -26,6 +26,10 @@
   --covens: #8fbf5a; /* moss */
   --dead: #7fb3c2; /* grave-light */
   --order: #d7dcea; /* pale flame */
+  /* the sky and its drifting motes follow the region you scheme in (body[data-region]) */
+  --sky: #2b1a3d;
+  --mote: rgba(196, 160, 255, 0.55);
+  --region-ink: var(--rune);
   --shadow: rgba(0, 0, 0, 0.55);
   --glow: rgba(150, 95, 230, 0.5);
   --btn: #2a2035;
@@ -52,7 +56,7 @@ body {
   font-family: var(--font);
   color: var(--text);
   background:
-    radial-gradient(ellipse at top, #2b1a3d 0%, transparent 55%),
+    radial-gradient(ellipse at top, var(--sky) 0%, transparent 55%),
     var(--bg);
   line-height: 1.45;
 }
@@ -1428,4 +1432,115 @@ body {
 
 .card-meta .empowered {
   color: var(--gold);
+}
+
+/* --- Sigils and atmosphere (v2.5) --- */
+
+body[data-region="avalon"] {
+  --sky: #1b3020;
+  --mote: rgba(186, 236, 120, 0.6); /* fireflies */
+  --region-ink: var(--covens);
+}
+
+body[data-region="wastes"] {
+  --sky: #3a2015;
+  --mote: rgba(255, 150, 80, 0.55); /* embers */
+  --region-ink: #e0965a;
+}
+
+body[data-region="lyonesse"] {
+  --sky: #122a3c;
+  --mote: rgba(150, 205, 255, 0.5); /* bubbles */
+  --region-ink: #86c1e6;
+}
+
+body[data-region="spire"] {
+  --sky: #24223a;
+  --mote: rgba(235, 235, 255, 0.5); /* cold stars */
+  --region-ink: #dcd8f2;
+}
+
+/* Motes drifting slowly up behind everything. Five layers with unrelated tile sizes keep the repeat from
+   reading as a grid; each layer moves exactly one tile height, so the loop is seamless. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.3;
+  background-image:
+    radial-gradient(circle at 23% 37%, var(--mote) 0 1.1px, transparent 2px),
+    radial-gradient(circle at 71% 13%, var(--mote) 0 1.5px, transparent 2.6px),
+    radial-gradient(circle at 47% 83%, var(--mote) 0 0.9px, transparent 1.8px),
+    radial-gradient(circle at 89% 61%, var(--mote) 0 1.3px, transparent 2.3px),
+    radial-gradient(circle at 9% 71%, var(--mote) 0 1px, transparent 2px);
+  background-size:
+    233px 271px,
+    389px 433px,
+    311px 347px,
+    467px 521px,
+    157px 613px;
+  animation: motes 120s linear infinite;
+}
+
+@keyframes motes {
+  from {
+    background-position:
+      0 0,
+      40px 60px,
+      120px 20px,
+      70px 200px,
+      10px 90px;
+  }
+  to {
+    background-position:
+      0 -271px,
+      40px -373px,
+      120px -327px,
+      70px -321px,
+      10px -523px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body::before {
+    animation: none;
+  }
+}
+
+.sigil {
+  display: inline-flex;
+  flex: none;
+}
+
+.sigil svg {
+  width: 100%;
+  height: 100%;
+}
+
+.region-intro {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.region-sigil {
+  width: 2.8rem;
+  height: 2.8rem;
+  color: var(--region-ink);
+}
+
+.nemesis-sigil {
+  align-self: flex-start;
+  width: 2.6rem;
+  height: 2.6rem;
+  color: var(--boss);
+}
+
+.faction-sigil {
+  align-self: flex-start;
+  width: 2.4rem;
+  height: 2.4rem;
+  color: var(--faction);
 }

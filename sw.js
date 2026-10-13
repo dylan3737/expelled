@@ -11,6 +11,7 @@ const APP_FILES = [
   "styles.css",
   "formulas.js",
   "content.js",
+  "art.js",
   "game.js",
   "manifest.webmanifest",
   "icons/icon-192.png",

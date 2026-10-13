@@ -218,6 +218,21 @@ test("eight festivals turn the year: the new ones run in February, March and Aug
   assert.equal(await at(0, 20), "", "no festival in late January");
 });
 
+test("sigils mark regions, nemeses and factions, and the sky follows the region", async () => {
+  const { ctx, page, errors } = await openGame(browser, server.url, { save: { level: 25, saveVersion: 12 } });
+  assert.equal(await page.getAttribute("body", "data-region"), "camelot");
+  assert.ok(await page.isVisible("#region-intro .region-sigil svg"));
+  await page.click('[data-action=region][data-id="wastes"]');
+  assert.equal(await page.getAttribute("body", "data-region"), "wastes");
+  assert.match(await page.textContent("#region-intro"), /scorched plain/);
+  await openTab(page, "bosses");
+  assert.equal(await page.$$eval("#boss-list .nemesis-sigil svg", (s) => s.length), 5);
+  await openTab(page, "factions");
+  assert.equal(await page.$$eval("#faction-list .faction-sigil svg", (s) => s.length), 3);
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
 test("Harvest Moon runs in October: ten wins claim its talisman", async () => {
   const { ctx, page, errors } = await openGame(browser, server.url, {
     time: new Date(2026, 9, 7, 12),
