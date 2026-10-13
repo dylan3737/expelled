@@ -2249,6 +2249,312 @@
   ];
 
   /**
+   * Factions (v2.5): standing runs from -100 to +100. Crossroads choices raise one faction and lower its
+   * rival by the same step, so no magician is sworn to everyone. Each perk applies while standing >= at.
+   * Perk effects are read by factionBonuses() in game.js: goldMult, xpMult, regenMult, attackPct, defensePct.
+   */
+  const FACTIONS = [
+    {
+      id: "covens",
+      name: "The Covens",
+      desc: "The witches of the Witchwood and every gutter-coven in Hollowmere. They keep the old ways, and long grudges.",
+      perks: [
+        { at: 30, effect: { xpMult: 0.1 }, text: "+10% XP" },
+        { at: 60, effect: { regenMult: 0.25 }, text: "Mana returns 25% faster" },
+      ],
+    },
+    {
+      id: "dead",
+      name: "The Restless Dead",
+      desc: "Liches, ghosts and the buried legions of the Ashen Wastes. They remember every promise, and every insult.",
+      perks: [
+        { at: 30, effect: { attackPct: 0.1 }, text: "+10% attack" },
+        { at: 60, effect: { defensePct: 0.15 }, text: "+15% defense" },
+      ],
+    },
+    {
+      id: "order",
+      name: "The Order of the Pale Flame",
+      desc: "Witch-hunters in silver, sworn to the White College. Some of them can be bought, and all of them talk.",
+      perks: [
+        { at: 30, effect: { goldMult: 0.1 }, text: "+10% gold" },
+        { at: 60, effect: { goldMult: 0.1 }, text: "another +10% gold" },
+      ],
+    },
+  ];
+
+  /**
+   * Crossroads: a choice offered every few schemes (from Level 5). Each option raises `faction` and lowers
+   * `rival`, then pays goldPerLevel or xpPerLevel times your level. `outcome` is logged after choosing.
+   */
+  const CROSSROADS = [
+    {
+      id: "informer",
+      minLevel: 5,
+      title: "The Sergeant's Offer",
+      text: "A Pale Flame sergeant corners you in an alley. Name one gutter-witch who sells hexes, he says, and he will forget your face.",
+      options: [
+        {
+          label: "Give him a name",
+          faction: "order",
+          rival: "covens",
+          goldPerLevel: 20,
+          outcome: "You give him a name. The sergeant pays well, and somewhere in Hollowmere a coven lights one candle fewer.",
+        },
+        {
+          label: "Warn the coven instead",
+          faction: "covens",
+          rival: "order",
+          xpPerLevel: 15,
+          outcome: "You send a crow to the coven. They are gone before the silver arrives, and they remember who warned them.",
+        },
+      ],
+    },
+    {
+      id: "widow",
+      minLevel: 5,
+      title: "The Widow's Coin",
+      text: "A widow pays you to keep her husband in his grave. Something in the crypt below keeps calling him up, and he keeps answering.",
+      options: [
+        {
+          label: "Salt and seal the grave",
+          faction: "order",
+          rival: "dead",
+          goldPerLevel: 20,
+          outcome: "Salt, iron and a College seal. He sleeps. A Pale Flame chaplain nods at your work and does not ask where you learned it.",
+        },
+        {
+          label: "Let him rise, and listen",
+          faction: "dead",
+          rival: "order",
+          xpPerLevel: 15,
+          outcome: "He rises, and tells you what the crypt has been whispering. The dead do not forget a magician who listens.",
+        },
+      ],
+    },
+    {
+      id: "bones",
+      minLevel: 8,
+      title: "Whose Bones",
+      text: "You dug up a saint's finger-bones for a charm. The coven wants them for a working; the saint's ghost wants them back.",
+      options: [
+        {
+          label: "Sell them to the coven",
+          faction: "covens",
+          rival: "dead",
+          goldPerLevel: 20,
+          outcome: "The coven grinds them for ink. The ghost wails all night outside your window, and then, worse, goes quiet.",
+        },
+        {
+          label: "Rebury them with honor",
+          faction: "dead",
+          rival: "covens",
+          xpPerLevel: 15,
+          outcome: "You bury the bones with candles and the old words. The ghost bows. The coven mother calls you soft.",
+        },
+      ],
+    },
+    {
+      id: "lanterns",
+      minLevel: 10,
+      title: "Lost in the Lanterns",
+      text: "A Pale Flame patrol is lost in the Witchwood, and the hanging lanterns are leading them in circles toward the bog.",
+      options: [
+        {
+          label: "Lead them out, for a price",
+          faction: "order",
+          rival: "covens",
+          goldPerLevel: 25,
+          outcome: "You walk them out by the back paths. The captain pays in silver and promises to forget the way. The witches watch you go.",
+        },
+        {
+          label: "Let the wood keep them",
+          faction: "covens",
+          rival: "order",
+          xpPerLevel: 18,
+          outcome: "You leave them to the lanterns. By morning the bog is quiet, and the covens leave a gift of honey on your step.",
+        },
+      ],
+    },
+    {
+      id: "tithe",
+      minLevel: 12,
+      title: "The Bone Tithe",
+      text: "The coven mother asks you to carry a tithe of bones to the great oak. On the road, a ghost offers you the bones' true names in exchange for them.",
+      options: [
+        {
+          label: "Deliver the tithe",
+          faction: "covens",
+          rival: "dead",
+          goldPerLevel: 25,
+          outcome: "The oak drinks the tithe and the coven mother is pleased. The ghost follows you home and sulks in the chimney.",
+        },
+        {
+          label: "Trade for the names",
+          faction: "dead",
+          rival: "covens",
+          xpPerLevel: 18,
+          outcome: "You learn forty names that no one has spoken in four hundred years. The coven mother learns that her tithe never came.",
+        },
+      ],
+    },
+    {
+      id: "confessor",
+      minLevel: 15,
+      title: "The Last Confession",
+      text: "A dying Pale Flame confessor will trade you the hiding places of three liches, if you give him the last rites the College way.",
+      options: [
+        {
+          label: "Give him the rites",
+          faction: "order",
+          rival: "dead",
+          goldPerLevel: 25,
+          outcome: "You say the College words over him, and he dies at peace. The Order hears of it, and the three liches hear of it too.",
+        },
+        {
+          label: "Let him go unshriven",
+          faction: "dead",
+          rival: "order",
+          xpPerLevel: 18,
+          outcome: "He dies cursing you. By midnight he is standing at your door, a little greyer, ready to serve the side that kept him.",
+        },
+      ],
+    },
+    {
+      id: "banner",
+      minLevel: 20,
+      title: "The Buried Banner",
+      text: "A buried legion in the Ashen Wastes asks you to dig up its banner. The Order has posted a guard on the field, and the guard is very young.",
+      options: [
+        {
+          label: "Raise the banner",
+          faction: "dead",
+          rival: "order",
+          xpPerLevel: 20,
+          outcome: "The banner comes up black and whole, and a thousand dead men stand to salute it. The young guard runs for the College.",
+        },
+        {
+          label: "Report the legion",
+          faction: "order",
+          rival: "dead",
+          goldPerLevel: 30,
+          outcome: "The Order burns the field with pale fire and pays you a bounty. The ash remembers your name.",
+        },
+      ],
+    },
+    {
+      id: "burning",
+      minLevel: 22,
+      title: "Books in the Square",
+      text: "The Order is burning a coven's grimoires in Hollowmere's square. A captain offers you the best of them to keep your mouth shut.",
+      options: [
+        {
+          label: "Take the book, say nothing",
+          faction: "order",
+          rival: "covens",
+          goldPerLevel: 30,
+          outcome: "You take the book and hold your tongue. The coven sees you in the crowd, warm by their own fire.",
+        },
+        {
+          label: "Put out the fire",
+          faction: "covens",
+          rival: "order",
+          xpPerLevel: 20,
+          outcome: "One word, and the pyre goes out. Half the books survive. So does the Order's memory of your face.",
+        },
+      ],
+    },
+    {
+      id: "mirror",
+      minLevel: 25,
+      title: "The Moon-Mirror",
+      text: "A lich offers to teach you a death-word, if you bring him the moon-mirror the covens keep under the oldest oak.",
+      options: [
+        {
+          label: "Steal the mirror",
+          faction: "dead",
+          rival: "covens",
+          xpPerLevel: 20,
+          outcome: "The mirror is cold and heavy and full of a moon that isn't there. The lich keeps his word. The covens keep a list.",
+        },
+        {
+          label: "Warn the oak",
+          faction: "covens",
+          rival: "dead",
+          goldPerLevel: 30,
+          outcome: "The oak shakes its leaves, and the covens move the mirror. The lich's next letter is very short.",
+        },
+      ],
+    },
+    {
+      id: "bell",
+      minLevel: 35,
+      title: "The Drowned Bell",
+      text: "Under the Grey Sea, a drowned bell rings the dead to the Archive. The College wants it silenced, and pays for the silence.",
+      options: [
+        {
+          label: "Let the bell ring",
+          faction: "dead",
+          rival: "order",
+          xpPerLevel: 22,
+          outcome: "The bell rings on. Every ghost under the sea turns its head toward you, gratefully, which is unsettling.",
+        },
+        {
+          label: "Muffle the bell",
+          faction: "order",
+          rival: "dead",
+          goldPerLevel: 35,
+          outcome: "You stuff the bell with College felt. The sea goes very quiet, and the College pays in heavy gold.",
+        },
+      ],
+    },
+    {
+      id: "sea_witches",
+      minLevel: 38,
+      title: "Servants of the Deep",
+      text: "Sea-witches want to raise the drowned librarians of the Archive as servants. The librarians, politely, would rather rest.",
+      options: [
+        {
+          label: "Help the sea-witches",
+          faction: "covens",
+          rival: "dead",
+          goldPerLevel: 35,
+          outcome: "The librarians rise, damp and resentful, and the sea-witches share their catch with you.",
+        },
+        {
+          label: "Let the librarians sleep",
+          faction: "dead",
+          rival: "covens",
+          xpPerLevel: 22,
+          outcome: "You turn the sea-witches away. One librarian leaves a book on your pillow, open at a page you needed.",
+        },
+      ],
+    },
+    {
+      id: "spire_door",
+      minLevel: 45,
+      title: "A Door in the Spire",
+      text: "A Pale Flame knight, sick of the College, offers to open a door into the Black Spire, if you hand over the coven that sheltered you.",
+      options: [
+        {
+          label: "Take the door",
+          faction: "order",
+          rival: "covens",
+          goldPerLevel: 40,
+          outcome: "The door opens on a stair of white stone. Behind you, in the Witchwood, a coven packs in the dark.",
+        },
+        {
+          label: "Refuse, and warn them",
+          faction: "covens",
+          rival: "order",
+          xpPerLevel: 25,
+          outcome: "You find another way into the Spire, slower and harder. The covens will not forget it.",
+        },
+      ],
+    },
+  ];
+
+  /**
    * Achievements: earned once, kept through Renown, each pays its gold when earned.
    * check.type is read by achievementProgress() in game.js; check.target is a number,
    * "all" (every scheme / lieutenant / lair / grimoire), or a boss id for bossKill.
@@ -2479,6 +2785,20 @@
       gold: 5000,
     },
     {
+      id: "crossroads",
+      name: "A Choice at the Crossroads",
+      desc: "Make your first choice at a crossroads.",
+      check: { type: "crossroads", target: 1 },
+      gold: 200,
+    },
+    {
+      id: "sworn",
+      name: "Sworn",
+      desc: "Be Sworn to a faction (standing 60).",
+      check: { type: "factionsSworn", target: 1 },
+      gold: 5000,
+    },
+    {
       id: "faithful_vassal",
       name: "A Loyal Cult",
       desc: "Collect the nightly tithe 7 nights in a row.",
@@ -2504,6 +2824,8 @@
     NAMED_KNIGHTS: NAMED_KNIGHTS,
     ACHIEVEMENTS: ACHIEVEMENTS,
     EVENTS: EVENTS,
+    FACTIONS: FACTIONS,
+    CROSSROADS: CROSSROADS,
     SPELLS: SPELLS,
     CHAPTERS: CHAPTERS,
     ACT_NAMES: ACT_NAMES,

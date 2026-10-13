@@ -132,7 +132,7 @@ test("holdings belong to known regions", () => {
 });
 
 test("achievements use known checks with sensible targets", () => {
-  const types = ["questsDone", "questsMastered", "level", "fightWins", "upsets", "bossKill", "band", "namedKnights", "holdings", "collections", "trainingRanks", "renown", "dailyStreak", "eventRewards", "spellCasts", "spellsMastered", "chapters"];
+  const types = ["questsDone", "questsMastered", "level", "fightWins", "upsets", "bossKill", "band", "namedKnights", "holdings", "collections", "trainingRanks", "renown", "dailyStreak", "eventRewards", "spellCasts", "spellsMastered", "chapters", "crossroads", "factionsSworn"];
   const allowAll = ["questsMastered", "namedKnights", "holdings", "collections", "chapters"];
   C.ACHIEVEMENTS.forEach((a) => {
     assert.ok(a.name && a.desc, a.id + ": needs a name and description");
@@ -147,6 +147,37 @@ test("achievements use known checks with sensible targets", () => {
       assert.ok(Number.isInteger(t) && t > 0, a.id + ": target must be a positive whole number");
     }
   });
+});
+
+test("factions: perks in order, and every crossroads sets two rival factions against each other", () => {
+  const ids = C.FACTIONS.map((f) => f.id);
+  assert.deepEqual(ids, ["covens", "dead", "order"]);
+  const effects = ["goldMult", "xpMult", "regenMult", "attackPct", "defensePct"];
+  C.FACTIONS.forEach((f) => {
+    assert.ok(f.name && f.desc, f.id + ": needs a name and description");
+    let prev = 0;
+    f.perks.forEach((p) => {
+      assert.ok(p.at > prev && p.at <= 100, f.id + ": perks rise in standing, within 100");
+      prev = p.at;
+      assert.ok(p.text, f.id + ": perk text");
+      Object.keys(p.effect).forEach((k) => assert.ok(effects.includes(k), f.id + ": unknown perk effect " + k));
+    });
+  });
+  const crIds = new Set();
+  C.CROSSROADS.forEach((cr) => {
+    assert.ok(!crIds.has(cr.id), "duplicate crossroads " + cr.id);
+    crIds.add(cr.id);
+    assert.ok(cr.title && cr.text && cr.minLevel >= 5, cr.id + ": title, text and a level of 5 or more");
+    assert.equal(cr.options.length, 2, cr.id + ": two options");
+    cr.options.forEach((o) => {
+      assert.ok(ids.includes(o.faction) && ids.includes(o.rival) && o.faction !== o.rival, cr.id + ": two different factions");
+      assert.ok(o.label && o.outcome, cr.id + ": label and outcome");
+      assert.ok((o.goldPerLevel > 0) !== (o.xpPerLevel > 0), cr.id + ": pays gold or XP");
+    });
+    const [a, b] = cr.options;
+    assert.ok(a.faction === b.rival && a.rival === b.faction, cr.id + ": the two options mirror each other");
+  });
+  assert.ok(C.CROSSROADS.filter((c) => c.minLevel <= 5).length >= 2, "at least two crossroads open at Level 5");
 });
 
 test("count-based achievement targets are reachable", () => {

@@ -136,6 +136,7 @@
         <button type="button" class="tab" role="tab" data-tab="lists">Duels<span class="tab-dot" hidden></span></button>
         <button type="button" class="tab" role="tab" data-tab="bosses">Nemeses<span class="tab-dot" hidden></span></button>
         <button type="button" class="tab" role="tab" data-tab="band">Thralls<span class="tab-dot" hidden></span></button>
+        <button type="button" class="tab" role="tab" data-tab="factions">Factions<span class="tab-dot" hidden></span></button>
         <button type="button" class="tab" role="tab" data-tab="holdings">Lairs<span class="tab-dot" hidden></span></button>
         <button type="button" class="tab" role="tab" data-tab="gear">Hoard<span class="tab-dot" hidden></span></button>
         <button type="button" class="tab" role="tab" data-tab="armory">Sanctum<span class="tab-dot" hidden></span></button>
@@ -155,6 +156,7 @@
           The Witchwood opens at Level 10, the Ashen Wastes at 20, the Drowned Archive at 35, the Black Spire at 45. Darker schemes need
           enough thralls or the right gear.
         </p>
+        <div id="crossroads" class="crossroads" aria-live="polite" hidden></div>
         <div id="region-tabs" class="region-tabs" role="tablist" aria-label="Regions"></div>
         <p class="panel-intro region-intro" id="region-intro"></p>
         <div id="quest-list" class="card-list"></div>
@@ -198,6 +200,17 @@
         </p>
         <div id="band-summary" class="equip-summary"></div>
         <div id="band-list" class="card-list"></div>
+      </section>
+
+      <section class="panel" aria-labelledby="factions-heading" data-panel="factions" role="tabpanel">
+        <h2 id="factions-heading">Factions</h2>
+        <p class="panel-intro">
+          Three powers watch you rise. From Level 5, every few schemes bring you to a crossroads: whichever side you
+          choose gains standing, and its rival loses the same. Standing of 30 and 60 earns each faction's perks, so
+          choose who you want on your side.
+        </p>
+        <div id="faction-summary" class="equip-summary"></div>
+        <div id="faction-list" class="card-list"></div>
       </section>
 
       <section class="panel" aria-labelledby="holdings-heading" data-panel="holdings" role="tabpanel">

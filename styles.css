@@ -23,6 +23,9 @@
   --mastery: #c98ae6;
   --boss: #57a27c;
   --good: #6fbf8e; /* met requirements, good odds, healing, success */
+  --covens: #8fbf5a; /* moss */
+  --dead: #7fb3c2; /* grave-light */
+  --order: #d7dcea; /* pale flame */
   --shadow: rgba(0, 0, 0, 0.55);
   --glow: rgba(150, 95, 230, 0.5);
   --btn: #2a2035;
@@ -1278,4 +1281,140 @@ body {
 .card-meta [class^="odds-"],
 .card-meta .gate {
   white-space: nowrap;
+}
+
+/* --- Factions and crossroads (v2.5) --- */
+
+.crossroads {
+  margin-bottom: 1rem;
+  padding: 0.8rem 0.9rem;
+  background: var(--bg-card);
+  border: 1px solid var(--gold);
+  border-radius: var(--radius);
+  box-shadow: 0 0 18px -6px var(--glow);
+}
+
+.crossroads h3 {
+  margin: 0.1rem 0 0.3rem;
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 1.15rem;
+  color: var(--rune);
+}
+
+.crossroads p {
+  margin: 0 0 0.6rem;
+  font-size: 0.92rem;
+  color: var(--text);
+}
+
+.crossroads .crossroads-kicker {
+  margin: 0;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--gold);
+}
+
+.crossroads-option {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.6rem;
+  padding: 0.45rem 0;
+  border-top: 1px solid var(--border-soft);
+}
+
+.crossroads-effect {
+  font-size: 0.82rem;
+  color: var(--text-dim);
+}
+
+.crossroads-effect > span {
+  white-space: nowrap;
+}
+
+.standing-up {
+  color: var(--good);
+}
+
+.standing-down {
+  color: var(--danger);
+}
+
+.faction-card {
+  border-left: 3px solid var(--faction, var(--border));
+}
+
+.faction-covens {
+  --faction: var(--covens);
+}
+
+.faction-dead {
+  --faction: var(--dead);
+}
+
+.faction-order {
+  --faction: var(--order);
+}
+
+.faction-card h3 {
+  color: var(--faction);
+}
+
+.faction-tier.tier-sworn,
+.faction-tier.tier-trusted {
+  color: var(--bg);
+  background: var(--faction);
+}
+
+.faction-tier.tier-wary,
+.faction-tier.tier-hostile {
+  color: var(--danger);
+}
+
+.standing-meter {
+  position: relative;
+  height: 0.45rem;
+  margin: 0.45rem 0 0.25rem;
+  background: var(--border-soft);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+/* the midpoint: neutral standing */
+.standing-meter::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--text-dim);
+}
+
+.standing-meter span {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+}
+
+.standing-meter .pos {
+  background: var(--faction);
+}
+
+.standing-meter .neg {
+  background: var(--danger);
+}
+
+.faction-perks {
+  margin: 0.35rem 0 0;
+  padding-left: 0;
+  list-style: none;
+  font-size: 0.85rem;
+  color: var(--text-dim);
+}
+
+.faction-perks li.got {
+  color: var(--text);
 }

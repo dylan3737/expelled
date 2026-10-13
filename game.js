@@ -14,7 +14,12 @@
   const LEGACY_SAVE_KEYS = ["ruin_wars_save_v1"]; // v0.3 and earlier
   const UNREADABLE_SAVE_KEY = "expelled_save_unreadable"; // copy of a save that failed to load
   const UPSET_ACHIEVEMENT_ODDS = 0.3; // "Against the Odds": win a bout with odds below this
-  const SAVE_VERSION = 11;
+  const SAVE_VERSION = 12;
+  const FACTION_STEP = 10; // standing gained (and lost by the rival) at each crossroads
+  const FACTION_LIMIT = 100;
+  const CROSSROADS_EVERY = 12; // schemes between crossroads
+  const CROSSROADS_MIN_LEVEL = 5;
+  const CROSSROADS_RECENT = 4; // a crossroads isn't offered again until this many others have been
   const TICK_MS = 1000;
   const BASE_ENERGY_MAX = 25;
   const BASE_STAMINA_MAX = 20;
@@ -94,6 +99,8 @@
     CHAPTERS,
     ACT_NAMES,
     EPILOGUE,
+    FACTIONS,
+    CROSSROADS,
   } = window.ExpelledContent;
   const xpForLevel = F.xpForLevel;
   const formatCooldown = F.formatCooldown;
@@ -122,6 +129,8 @@
       events: {}, // "<event>-<year>" -> { tokens, claimed, cooldownUntil }; kept through Renown
       spells: { casts: {}, cooldownUntil: {}, active: {} }, // Spellbook; mastery (casts) kept through rebirth
       story: { done: {}, seen: null }, // chapter id -> time finished; seen = last chapter read; kept through rebirth
+      // standing per faction, the crossroads waiting for a choice, schemes since the last one; kept through rebirth
+      factions: { standing: {}, pending: null, sinceLast: CROSSROADS_EVERY, choices: 0, recent: [] },
       questCooldownUntil: {},
       fightCooldownUntil: {},
       questCounts: {},
@@ -423,6 +432,7 @@
     m += rankedBonuses().goldMult;
     m += renownBonuses().goldMult;
     m += spellEffects().goldMult;
+    m += factionBonuses().goldMult;
     if (questId) {
       m += masteryBonusForQuest(questId).goldAdd;
     }
@@ -443,6 +453,7 @@
     m += renownBonuses().xpMult;
     m += bandBonuses().xpMult;
     m += spellEffects().xpMult;
+    m += factionBonuses().xpMult;
     if (questId) {
       m += masteryBonusForQuest(questId).xpAdd;
     }
@@ -502,7 +513,7 @@
   }
 
   function regenIntervalMs() {
-    let bonus = 0;
+    let bonus = factionBonuses().regenMult;
     for (const u of UPGRADES) {
       if (state.ownedUpgrades[u.id] && u.effect.regenMult) {
         bonus += u.effect.regenMult;
@@ -521,7 +532,7 @@
       eq.attack +
       bandBonuses().attack +
       collectionBonuses().attack;
-    return Math.round(base * (1 + spellEffects().attackPct));
+    return Math.round(base * (1 + spellEffects().attackPct + factionBonuses().attackPct));
   }
 
   /** Defense rating: soaks a share of fight and boss damage */
@@ -533,7 +544,7 @@
       eq.defense +
       bandBonuses().defense +
       collectionBonuses().defense;
-    return Math.round(base * (1 + spellEffects().defensePct));
+    return Math.round(base * (1 + spellEffects().defensePct + factionBonuses().defensePct));
   }
 
   function soakDamage(dmg) {
@@ -830,6 +841,15 @@
     if (!state.story || typeof state.story !== "object") state.story = {};
     if (!state.story.done || typeof state.story.done !== "object") state.story.done = {};
     if (typeof state.story.seen !== "string") state.story.seen = null;
+    // v2.5 fields
+    const fx = state.factions && typeof state.factions === "object" ? state.factions : {};
+    state.factions = {
+      standing: fx.standing && typeof fx.standing === "object" ? fx.standing : {},
+      pending: typeof fx.pending === "string" && crossroadsDef(fx.pending) ? fx.pending : null,
+      sinceLast: typeof fx.sinceLast === "number" ? fx.sinceLast : CROSSROADS_EVERY,
+      choices: typeof fx.choices === "number" ? fx.choices : 0,
+      recent: Array.isArray(fx.recent) ? fx.recent : [],
+    };
     if (!state.questCounts || typeof state.questCounts !== "object") {
       state.questCounts = {};
     }
@@ -1093,6 +1113,7 @@
     );
 
     checkMasteryMilestones(quest.id, newCount);
+    noteSchemeForCrossroads();
 
     if (Math.random() < LOOT_DROP_CHANCE) {
       grantLoot(rollLootDrop(quest.region));
@@ -1862,6 +1883,7 @@
       events: state.events,
       spells: { casts: state.spells.casts, cooldownUntil: {}, active: {} },
       story: state.story,
+      factions: state.factions,
     };
     const finalLevel = state.level;
     state = Object.assign(defaultState(), kept);
@@ -2051,6 +2073,9 @@
     spellList: document.getElementById("spell-list"),
     activeSpells: document.getElementById("active-spells"),
     storyBar: document.getElementById("story-bar"),
+    crossroads: document.getElementById("crossroads"),
+    factionSummary: document.getElementById("faction-summary"),
+    factionList: document.getElementById("faction-list"),
     tale: document.getElementById("tale"),
     taleList: document.getElementById("tale-list"),
     ticker: document.getElementById("ticker"),
@@ -2164,6 +2189,7 @@
     daily: claimDaily,
     cast: castSpell,
     "read-story": readStory,
+    crossroads: chooseCrossroads,
     "event-fight": doEventFight,
     "event-claim": claimEventReward,
   };
@@ -2475,7 +2501,7 @@
 
   // --- Tabs ---
 
-  const TAB_IDS = ["quests", "spells", "lists", "bosses", "band", "holdings", "gear", "armory", "chronicle"];
+  const TAB_IDS = ["quests", "spells", "lists", "bosses", "band", "factions", "holdings", "gear", "armory", "chronicle"];
   const TAB_STORE_KEY = "expelled_tab"; // per-browser convenience, not part of the save
   let currentTab = "quests";
 
@@ -2555,6 +2581,7 @@
   /** Which tabs have something waiting for the player. */
   function tabAlerts() {
     const alerts = {};
+    alerts.quests = !!state.factions.pending;
     alerts.holdings = HOLDINGS.some(function (def) {
       const h = state.holdings && state.holdings[def.id];
       return !!(h && h.owned && h.pending >= holdingCap(def, h));
@@ -2586,6 +2613,7 @@
   }
 
   const TAB_ALERT_TITLES = {
+    quests: "A crossroads waits for your choice.",
     holdings: "A lair is full. Collect its gold.",
     band: "The dead are ready to rise.",
     gear: "A grimoire is complete. Bind it.",
@@ -2795,6 +2823,14 @@
       case "upgrade":
         cur = state.ownedUpgrades[c.id] ? 1 : 0;
         break;
+      case "crossroads":
+        cur = state.factions.choices;
+        break;
+      case "factionsSworn":
+        cur = FACTIONS.filter(function (f) {
+          return factionStanding(f.id) >= FACTION_SWORN;
+        }).length;
+        break;
       case "chapters":
         cur = chaptersDone();
         if (target === "all") target = CHAPTERS.length;
@@ -2920,6 +2956,247 @@
     frag.appendChild(text);
     frag.appendChild(btn);
     patchChildren(el.dailyBar, frag);
+  }
+
+  // --- Factions and crossroads ---
+
+  const FACTION_SWORN = 60;
+  const FACTION_TIERS = [
+    { min: FACTION_SWORN, name: "Sworn" },
+    { min: 30, name: "Trusted" },
+    { min: 10, name: "Known" },
+    { min: 0, name: "Neutral" },
+    { min: -29, name: "Wary" },
+    { min: -FACTION_LIMIT, name: "Hostile" },
+  ];
+
+  function factionDef(id) {
+    return FACTIONS.find(function (f) {
+      return f.id === id;
+    });
+  }
+
+  function crossroadsDef(id) {
+    return CROSSROADS.find(function (c) {
+      return c.id === id;
+    });
+  }
+
+  function factionStanding(id) {
+    return state.factions.standing[id] || 0;
+  }
+
+  function factionTier(standing) {
+    return FACTION_TIERS.find(function (t) {
+      return standing >= t.min;
+    }).name;
+  }
+
+  /** Perks from every faction whose standing is high enough. */
+  function factionBonuses() {
+    const out = { goldMult: 0, xpMult: 0, regenMult: 0, attackPct: 0, defensePct: 0 };
+    FACTIONS.forEach(function (f) {
+      const st = factionStanding(f.id);
+      f.perks.forEach(function (p) {
+        if (st < p.at) return;
+        Object.keys(p.effect).forEach(function (k) {
+          out[k] += p.effect[k];
+        });
+      });
+    });
+    return out;
+  }
+
+  /** Called after each scheme: every CROSSROADS_EVERY schemes (from Level 5) a new choice appears. */
+  function noteSchemeForCrossroads() {
+    const fx = state.factions;
+    fx.sinceLast += 1;
+    if (fx.pending || state.level < CROSSROADS_MIN_LEVEL || fx.sinceLast < CROSSROADS_EVERY) return;
+    const open = CROSSROADS.filter(function (c) {
+      return state.level >= c.minLevel;
+    });
+    const fresh = open.filter(function (c) {
+      return fx.recent.indexOf(c.id) < 0;
+    });
+    const pool = fresh.length ? fresh : open;
+    if (!pool.length) return;
+    const pick = pool[Math.floor(Math.random() * pool.length)];
+    fx.pending = pick.id;
+    addLog("A crossroads: " + pick.title + ". Choose your side at the top of the Schemes tab.");
+  }
+
+  function crossroadsReward(opt) {
+    if (opt.goldPerLevel) return { gold: opt.goldPerLevel * state.level, xp: 0 };
+    return { gold: 0, xp: (opt.xpPerLevel || 0) * state.level };
+  }
+
+  function shiftStanding(id, delta) {
+    const before = factionStanding(id);
+    const after = Math.max(-FACTION_LIMIT, Math.min(FACTION_LIMIT, before + delta));
+    state.factions.standing[id] = after;
+    return { before: before, after: after };
+  }
+
+  function chooseCrossroads(idx) {
+    const fx = state.factions;
+    const cr = fx.pending ? crossroadsDef(fx.pending) : null;
+    const opt = cr ? cr.options[Number(idx)] : null;
+    if (!opt) return;
+    const up = shiftStanding(opt.faction, FACTION_STEP);
+    shiftStanding(opt.rival, -FACTION_STEP);
+    const reward = crossroadsReward(opt);
+    state.gold += reward.gold;
+    state.xp += reward.xp;
+    fx.pending = null;
+    fx.sinceLast = 0;
+    fx.choices += 1;
+    fx.recent = fx.recent.concat(cr.id).slice(-CROSSROADS_RECENT);
+    addLog(
+      opt.outcome +
+        " " +
+        factionDef(opt.faction).name +
+        " +" +
+        FACTION_STEP +
+        ", " +
+        factionDef(opt.rival).name +
+        " −" +
+        FACTION_STEP +
+        (reward.gold ? ", +" + reward.gold + " gold" : "") +
+        (reward.xp ? ", +" + reward.xp + " XP" : "") +
+        "."
+    );
+    // Announce a perk the moment it is earned
+    factionDef(opt.faction).perks.forEach(function (p) {
+      if (up.before < p.at && up.after >= p.at) {
+        addLog(factionDef(opt.faction).name + " now count you " + factionTier(up.after) + ": " + p.text + ".");
+        showToast(factionDef(opt.faction).name + ": " + factionTier(up.after), "achv-toast", 3000);
+      }
+    });
+    tryLevelUp();
+    save();
+    render();
+  }
+
+  function standingText(st) {
+    return (st > 0 ? "+" : st < 0 ? "−" : "") + Math.abs(st);
+  }
+
+  function renderCrossroads() {
+    if (!el.crossroads) return;
+    const cr = state.factions.pending ? crossroadsDef(state.factions.pending) : null;
+    el.crossroads.hidden = !cr;
+    if (!cr) return;
+    const frag = document.createDocumentFragment();
+    const head = document.createElement("div");
+    head.setAttribute("data-key", "cr-head:" + cr.id);
+    head.innerHTML =
+      '<p class="crossroads-kicker">Crossroads</p><h3>' +
+      escapeHtml(cr.title) +
+      "</h3><p>" +
+      escapeHtml(cr.text) +
+      "</p>";
+    frag.appendChild(head);
+    cr.options.forEach(function (opt, i) {
+      const row = document.createElement("div");
+      row.className = "crossroads-option";
+      row.setAttribute("data-key", "cr-opt:" + cr.id + ":" + i);
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "btn btn-primary";
+      btn.textContent = opt.label;
+      actionButton(btn, "crossroads", String(i));
+      const reward = crossroadsReward(opt);
+      const effect = document.createElement("span");
+      effect.className = "crossroads-effect";
+      effect.innerHTML =
+        '<span class="standing-up">' +
+        escapeHtml(factionDef(opt.faction).name) +
+        " +" +
+        FACTION_STEP +
+        '</span> · <span class="standing-down">' +
+        escapeHtml(factionDef(opt.rival).name) +
+        " −" +
+        FACTION_STEP +
+        "</span> · " +
+        (reward.gold
+          ? '<span class="reward-gold">+' + reward.gold + " gold</span>"
+          : '<span class="reward-xp">+' + reward.xp + " XP</span>");
+      row.appendChild(btn);
+      row.appendChild(effect);
+      frag.appendChild(row);
+    });
+    patchChildren(el.crossroads, frag);
+  }
+
+  function renderFactions() {
+    if (!el.factionList) return;
+    const fx = state.factions;
+    const left = Math.max(0, CROSSROADS_EVERY - fx.sinceLast);
+    el.factionSummary.textContent =
+      (fx.choices === 1 ? "1 choice made" : fx.choices + " choices made") +
+      " · " +
+      (state.level < CROSSROADS_MIN_LEVEL
+        ? "crossroads begin at Level " + CROSSROADS_MIN_LEVEL
+        : fx.pending
+          ? "a crossroads waits in the Schemes tab"
+          : "next crossroads in " + Math.max(1, left) + (Math.max(1, left) === 1 ? " scheme" : " schemes"));
+    const frag = document.createDocumentFragment();
+    FACTIONS.forEach(function (f) {
+      const st = factionStanding(f.id);
+      const tier = factionTier(st);
+      const next = f.perks.find(function (p) {
+        return st < p.at;
+      });
+      const card = document.createElement("article");
+      card.className = "card faction-card faction-" + f.id;
+      card.setAttribute("data-key", "faction:" + f.id);
+      // The meter runs from -100 (left) to +100 (right), filled from the middle.
+      const pct = Math.abs(st) / 2;
+      card.innerHTML =
+        '<div class="card-body">' +
+        "<h3>" +
+        escapeHtml(f.name) +
+        '<span class="badge faction-tier tier-' +
+        tier.toLowerCase() +
+        '">' +
+        tier +
+        "</span></h3>" +
+        '<p class="card-meta">' +
+        escapeHtml(f.desc) +
+        "</p>" +
+        '<div class="standing-meter" aria-hidden="true"><span class="' +
+        (st >= 0 ? "pos" : "neg") +
+        '" style="width:' +
+        pct +
+        "%;" +
+        (st >= 0 ? "left:50%" : "right:50%") +
+        '"></span></div>' +
+        '<p class="card-meta">Standing ' +
+        standingText(st) +
+        (next ? " · " + (next.at - st) + " to " + factionTier(next.at) : " · every perk earned") +
+        "</p>" +
+        '<ul class="faction-perks">' +
+        f.perks
+          .map(function (p) {
+            const got = st >= p.at;
+            return (
+              '<li class="' +
+              (got ? "got" : "") +
+              '">' +
+              (got ? "✓ " : "") +
+              factionTier(p.at) +
+              " (" +
+              p.at +
+              "): " +
+              escapeHtml(p.text) +
+              "</li>"
+            );
+          })
+          .join("") +
+        "</ul></div>";
+      frag.appendChild(card);
+    });
+    patchChildren(el.factionList, frag);
   }
 
   // --- The story ---
@@ -4672,11 +4949,12 @@
   /** Everything that can change without a player action (timers, regen, accrual). */
   /** Panels on each tab. Hidden tabs aren't rendered; setTab() renders a tab when it's shown. */
   const TAB_RENDERERS = {
-    quests: [renderRegions, renderQuests],
+    quests: [renderCrossroads, renderRegions, renderQuests],
     spells: [renderSpells],
     lists: [renderFights, renderHeals],
     bosses: [renderBosses],
     band: [renderBand],
+    factions: [renderFactions],
     holdings: [renderHoldings],
     gear: [renderInventory, renderCollections],
     armory: [renderShop],
