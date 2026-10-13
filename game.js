@@ -2792,6 +2792,9 @@
       case "questCount":
         cur = questCount(c.quest);
         break;
+      case "upgrade":
+        cur = state.ownedUpgrades[c.id] ? 1 : 0;
+        break;
       case "chapters":
         cur = chaptersDone();
         if (target === "all") target = CHAPTERS.length;
@@ -2991,6 +2994,16 @@
     if (el.tale) el.tale.scrollIntoView({ block: "start" });
   }
 
+  /** The tab where each kind of chapter goal is worked on. */
+  const STORY_GOAL_TABS = {
+    questsDone: "quests",
+    questCount: "quests",
+    fightWins: "lists",
+    upgrade: "armory",
+    bossKill: "bosses",
+    band: "band",
+  };
+
   function renderStoryBar() {
     if (!el.storyBar) return;
     const ch = currentChapter();
@@ -3013,9 +3026,18 @@
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "btn";
-    btn.setAttribute("data-key", "story-read");
-    btn.textContent = state.story.seen === ch.id ? "Read" : "Read new chapter";
-    actionButton(btn, "read-story");
+    // Unread: offer the chapter. Read: take the player to where its goal is done.
+    const goTab = state.story.seen === ch.id ? STORY_GOAL_TABS[ch.goal.type] : null;
+    const goBtn = goTab && goTab !== currentTab ? el.tabBar.querySelector('[data-tab="' + goTab + '"]') : null;
+    if (goBtn) {
+      btn.setAttribute("data-key", "story-go:" + goTab);
+      btn.textContent = "Go to " + goBtn.textContent.trim();
+      actionButton(btn, "tab", goTab);
+    } else {
+      btn.setAttribute("data-key", "story-read");
+      btn.textContent = state.story.seen === ch.id ? "Read" : "Read new chapter";
+      actionButton(btn, "read-story");
+    }
     frag.appendChild(text);
     frag.appendChild(btn);
     patchChildren(el.storyBar, frag);
@@ -3312,11 +3334,14 @@
   // --- Seasonal events ---
 
   const EVENT_FOE_STAMINA = 10;
+  const EVENT_MIN_LEVEL = 5;
   const EVENT_FOE_COOLDOWN_MS = 3 * 60 * 1000;
   const EVENT_FOE_STRENGTH = 1.05; // the champion matches your attack, a little above it (~45% odds)
 
   /** The running event with this year's progress, or null. */
   function currentEvent() {
+    // New magicians aren't shown festivals: the champion is no fight for them, and the banner crowds the start.
+    if (state.level < EVENT_MIN_LEVEL) return null;
     const hit = F.activeEvent(EVENTS, new Date());
     if (!hit) return null;
     if (!state.events[hit.key]) state.events[hit.key] = { tokens: 0, claimed: false, cooldownUntil: 0 };
@@ -3596,12 +3621,14 @@
       // Bound thralls against the level cap; lieutenants are counted on their own, as in the Thralls tab.
       el.band.textContent = String(bandState().recruits);
       el.bandCap.textContent = String(bandCap());
+      const lieutenantsOpen = NAMED_KNIGHTS.some(function (k) {
+        return state.level >= k.minLevel;
+      });
       el.bandHint.textContent =
-        "Lieutenants " +
-        namedKnightsOwned().length +
-        " / " +
-        NAMED_KNIGHTS.length +
-        " · Atk " +
+        (lieutenantsOpen || namedKnightsOwned().length
+          ? "Lieutenants " + namedKnightsOwned().length + " / " + NAMED_KNIGHTS.length + " · "
+          : "") +
+        "Atk " +
         attackRating() +
         " · Def " +
         defenseRating();

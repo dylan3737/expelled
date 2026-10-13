@@ -196,7 +196,7 @@ test("spells: known effects, a way to end every buff, sensible costs", () => {
 });
 
 test("story chapters: real goals, in five acts, and each one reachable after the one before", () => {
-  const goalTypes = ["questsDone", "questCount", "fightWins", "level", "bossKill", "band"];
+  const goalTypes = ["questsDone", "questCount", "fightWins", "level", "bossKill", "band", "upgrade"];
   // The lowest level at which a chapter's goal can be met (null when no level gates it).
   const unlockLevel = (g) => {
     if (g.type === "level") return g.target;
@@ -212,6 +212,7 @@ test("story chapters: real goals, in five acts, and each one reachable after the
     const g = ch.goal;
     assert.ok(goalTypes.includes(g.type), ch.id + ": unknown goal " + g.type);
     if (g.type === "questCount") assert.ok(C.QUESTS.some((q) => q.id === g.quest), ch.id + ": unknown scheme " + g.quest);
+    if (g.type === "upgrade") assert.ok(C.UPGRADES.some((u) => u.id === g.id), ch.id + ": unknown upgrade " + g.id);
     if (g.type === "bossKill") assert.ok(C.BOSSES.some((b) => b.id === g.target), ch.id + ": unknown nemesis " + g.target);
     if (g.type !== "bossKill") assert.ok(Number.isInteger(g.target) && g.target > 0, ch.id + ": target");
     const lv = unlockLevel(g);

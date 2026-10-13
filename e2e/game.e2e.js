@@ -185,6 +185,22 @@ test("polish: rank badges, mastery bonus text, the tab bar's edge fade and the t
   await ctx.close();
 });
 
+test("festivals wait until Level 5, so a new magician's start stays uncluttered", async () => {
+  const { ctx, page, errors } = await openGame(browser, server.url, {
+    time: new Date(2026, 9, 7, 12),
+    save: { level: 4, saveVersion: 11 },
+  });
+  assert.ok(await page.isHidden("#event-bar"));
+  await openTab(page, "lists");
+  assert.equal(await page.$("[data-action=event-fight]"), null);
+  assert.deepEqual(errors, []);
+  await ctx.close();
+  const at5 = await openGame(browser, server.url, { time: new Date(2026, 9, 7, 12), save: { level: 5, saveVersion: 11 } });
+  assert.match(await at5.page.textContent("#event-bar"), /Harvest Moon/);
+  assert.deepEqual(at5.errors, []);
+  await at5.ctx.close();
+});
+
 test("Harvest Moon runs in October: ten wins claim its talisman", async () => {
   const { ctx, page, errors } = await openGame(browser, server.url, {
     time: new Date(2026, 9, 7, 12),

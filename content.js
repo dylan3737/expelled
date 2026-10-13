@@ -1983,6 +1983,15 @@
       gold: 100,
     },
     {
+      id: "wand",
+      act: "I",
+      title: "A Wand of Your Own",
+      text: "The wand you stole from the College is a student's twig, and it shows: every gutter-witch in Hollowmere can see it shake. Before you step into anyone's circle, buy a proper focus. The Sanctum sells blackthorn, cut at midnight and only a little cursed.",
+      goal: { type: "upgrade", id: "sword", target: 1 },
+      goalText: "Buy the Blackthorn Wand in the Sanctum.",
+      gold: 100,
+    },
+    {
       id: "familiar",
       act: "I",
       title: "A Voice in the Drains",
