@@ -1,5 +1,5 @@
 /**
- * Expelled — the rise of a dark magician (v2.4; called Ruin Wars until v2.2). Content tables live in content.js, pure formulas in formulas.js.
+ * Expelled — the rise of a dark magician (v2.5; called Ruin Wars until v2.2). Content tables live in content.js, pure formulas in formulas.js.
  * Quests (Energy) across Regions + mastery/story/requirements, The Lists (Stamina/Health, odds-based
  * bouts), Bosses, Knight Band, Holdings (passive gold), Loot/Inventory (region tiers, equip, sell),
  * Collections, shop upgrades + ranked training.
@@ -17,7 +17,7 @@
   const SAVE_VERSION = 12;
   const FACTION_STEP = 10; // standing gained (and lost by the rival) at each crossroads
   const FACTION_LIMIT = 100;
-  const CROSSROADS_EVERY = 12; // schemes between crossroads
+  const CROSSROADS_EVERY = 20; // schemes between crossroads
   const CROSSROADS_MIN_LEVEL = 5;
   const CROSSROADS_RECENT = 4; // a crossroads isn't offered again until this many others have been
   const TICK_MS = 1000;
@@ -867,6 +867,8 @@
     if (!state.story || typeof state.story !== "object") state.story = {};
     if (!state.story.done || typeof state.story.done !== "object") state.story.done = {};
     if (typeof state.story.seen !== "string") state.story.seen = null;
+    // Ruin Wars started every player as "Knight"; a save that never renamed keeps that default, so give it ours.
+    if (state.name === "Knight") state.name = defaultState().name;
     // v2.5 fields
     if (!state.gearRanks || typeof state.gearRanks !== "object") state.gearRanks = {};
     const fx = state.factions && typeof state.factions === "object" ? state.factions : {};
@@ -5193,6 +5195,7 @@
     RANKED_UPGRADES: RANKED_UPGRADES,
     HOLDINGS: HOLDINGS,
     LOOT: LOOT,
+    CROSSROADS: CROSSROADS,
     STORY_BEATS: STORY_BEATS,
     MASTERY_THRESHOLDS: MASTERY_THRESHOLDS,
     REGIONS: REGIONS,

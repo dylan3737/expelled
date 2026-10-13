@@ -21,7 +21,7 @@ const factions = (extra) => Object.assign({ standing: {}, pending: null, sinceLa
 
 test("a crossroads appears after enough schemes, and choosing raises one faction and lowers its rival", async () => {
   const { ctx, page, errors } = await openGame(browser, server.url, {
-    save: { level: 6, gold: 0, energy: 50, saveVersion: 12, factions: factions({ sinceLast: 11 }) },
+    save: { level: 6, gold: 0, energy: 50, saveVersion: 12, factions: factions({ sinceLast: 19 }) },
   });
   assert.ok(await page.isHidden("#crossroads"));
   await page.click('[data-action=quest][data-id="patrol"]');
@@ -74,15 +74,15 @@ test("standing earns perks: Trusted with the Covens adds XP, and the Factions ta
   const s = await state(page);
   assert.equal(s.factions.standing.covens, 30);
   assert.equal(s.factions.standing.order, -5);
-  assert.ok((await log(page)).some((l) => l === "The Covens now count you Trusted: +10% XP."));
+  assert.ok((await log(page)).some((l) => l === "The Covens now count you Trusted: +6% XP."));
   assert.notEqual(await xpShown(), before, "scheme XP rises with the perk");
   await openTab(page, "factions");
   const covens = await page.textContent('[data-key="faction:covens"]');
   assert.match(covens, /Trusted/);
-  assert.match(covens, /✓ Trusted \(30\): \+10% XP/);
+  assert.match(covens, /✓ Trusted \(30\): \+6% XP/);
   assert.match(covens, /30 to Sworn/);
   assert.match(await page.textContent('[data-key="faction:order"]'), /Wary/);
-  assert.match(await page.textContent("#faction-summary"), /^1 choice made · next crossroads in 12 schemes$/);
+  assert.match(await page.textContent("#faction-summary"), /^1 choice made · next crossroads in 20 schemes$/);
   assert.deepEqual(errors, []);
   await ctx.close();
 });

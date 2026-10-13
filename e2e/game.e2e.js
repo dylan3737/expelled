@@ -233,6 +233,17 @@ test("sigils mark regions, nemeses and factions, and the sky follows the region"
   await ctx.close();
 });
 
+test("a save that kept Ruin Wars' default name, Knight, becomes a Magician; chosen names are kept", async () => {
+  const { ctx, page, errors } = await openGame(browser, server.url, { save: { name: "Knight", level: 9, saveVersion: 8 } });
+  assert.equal((await state(page)).name, "Magician");
+  assert.equal(await page.textContent("#player-name"), "Magician");
+  await ctx.close();
+  const named = await openGame(browser, server.url, { save: { name: "Sir Knightly", level: 9, saveVersion: 8 } });
+  assert.equal((await state(named.page)).name, "Sir Knightly");
+  assert.deepEqual(errors.concat(named.errors), []);
+  await named.ctx.close();
+});
+
 test("Harvest Moon runs in October: ten wins claim its talisman", async () => {
   const { ctx, page, errors } = await openGame(browser, server.url, {
     time: new Date(2026, 9, 7, 12),

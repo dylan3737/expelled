@@ -2322,8 +2322,8 @@
       name: "The Covens",
       desc: "The witches of the Witchwood and every gutter-coven in Hollowmere. They keep the old ways, and long grudges.",
       perks: [
-        { at: 30, effect: { xpMult: 0.1 }, text: "+10% XP" },
-        { at: 60, effect: { regenMult: 0.25 }, text: "Mana returns 25% faster" },
+        { at: 30, effect: { xpMult: 0.06 }, text: "+6% XP" },
+        { at: 60, effect: { regenMult: 0.08 }, text: "Mana returns 8% faster" },
       ],
     },
     {
@@ -2331,8 +2331,8 @@
       name: "The Restless Dead",
       desc: "Liches, ghosts and the buried legions of the Ashen Wastes. They remember every promise, and every insult.",
       perks: [
-        { at: 30, effect: { attackPct: 0.1 }, text: "+10% attack" },
-        { at: 60, effect: { defensePct: 0.15 }, text: "+15% defense" },
+        { at: 30, effect: { attackPct: 0.07 }, text: "+7% attack" },
+        { at: 60, effect: { defensePct: 0.1 }, text: "+10% defense" },
       ],
     },
     {
@@ -2340,8 +2340,8 @@
       name: "The Order of the Pale Flame",
       desc: "Witch-hunters in silver, sworn to the White College. Some of them can be bought, and all of them talk.",
       perks: [
-        { at: 30, effect: { goldMult: 0.1 }, text: "+10% gold" },
-        { at: 60, effect: { goldMult: 0.1 }, text: "another +10% gold" },
+        { at: 30, effect: { goldMult: 0.12 }, text: "+12% gold" },
+        { at: 60, effect: { goldMult: 0.12 }, text: "another +12% gold" },
       ],
     },
   ];

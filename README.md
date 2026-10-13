@@ -4,7 +4,7 @@ The rise of a dark magician, in the spirit of old Facebook *Mafia Wars*. Cast ou
 
 **Status:** private, not published. Open `index.html` locally to play (see [How to run locally](#how-to-run-locally)); [Hosting](#hosting) explains how to publish it later.
 
-**Current version: v2.4** — a polish pass: clearer rank badges and bonus text, a tab bar that shows it scrolls on phones, toasts that no longer cover the tabs, and a compact achievements grid (see [v2.4](#v24--polish-pass)). v2.3 gave the game its own name and repo. Until v2.2 it was the dark-magician branch of **Ruin Wars**; Ruin Wars itself went back to its Arthurian v1.0 in its own repo (see [v2.3](#v23--expelled)). v2.2 added a **main story** in 21 chapters and a fifth region, **the Black Spire** (see [v2.2](#v22--the-tale-and-the-black-spire)). v2.1 added a **Spellbook** of eight spells cast with Mana (see [v2.1](#v21--the-spellbook)), and browser tests that run in CI. v2.0 rethemed the game from Arthurian legend to **the adventures of a dark magician** (see [v2.0](#v20--the-dark-magician)); mechanics, numbers and saves are unchanged. v1.0 added a fourth region (Lyonesse, now the Drowned Archive, Level 35), seasonal tourneys (now festivals), a balance pass driven by a simulated player (levels now take much longer), and fixes from a code review. v0.9 added a first-visit guide, achievements, a daily tribute, music and an installable app; v0.8 added seven new foes in The Lists, sound effects, and tests + deploys on GitHub Actions; v0.7 brought a gentler start and a longer end: a softer first foe plus a Tempered Blade tip, a third boss (**the Questing Beast**), and **Renown** (prestige). v0.6 made it easier to play: tabs instead of one long page, a save backup you can copy and paste, and clearer feedback (floating gains, a level-up flash, time-until-full on Energy / Stamina / Health). v0.5 deepened the economy (ranked training, region-tiered loot you can sell, odds-based bouts, quest requirements); v0.4 added Regions, Bosses, Knight Band and Collections.
+**Current version: v2.5** — **factions** with crossroads choices, **empowered gear**, three more **festivals**, a smoother **first five minutes**, and **sigils** and region skies (see [v2.5](#v25--factions-forge-and-festivals)). v2.4 was a polish pass: clearer rank badges and bonus text, a tab bar that shows it scrolls on phones, toasts that no longer cover the tabs, and a compact achievements grid (see [v2.4](#v24--polish-pass)). v2.3 gave the game its own name and repo. Until v2.2 it was the dark-magician branch of **Ruin Wars**; Ruin Wars itself went back to its Arthurian v1.0 in its own repo (see [v2.3](#v23--expelled)). v2.2 added a **main story** in 21 chapters and a fifth region, **the Black Spire** (see [v2.2](#v22--the-tale-and-the-black-spire)). v2.1 added a **Spellbook** of eight spells cast with Mana (see [v2.1](#v21--the-spellbook)), and browser tests that run in CI. v2.0 rethemed the game from Arthurian legend to **the adventures of a dark magician** (see [v2.0](#v20--the-dark-magician)); mechanics, numbers and saves are unchanged. v1.0 added a fourth region (Lyonesse, now the Drowned Archive, Level 35), seasonal tourneys (now festivals), a balance pass driven by a simulated player (levels now take much longer), and fixes from a code review. v0.9 added a first-visit guide, achievements, a daily tribute, music and an installable app; v0.8 added seven new foes in The Lists, sound effects, and tests + deploys on GitHub Actions; v0.7 brought a gentler start and a longer end: a softer first foe plus a Tempered Blade tip, a third boss (**the Questing Beast**), and **Renown** (prestige). v0.6 made it easier to play: tabs instead of one long page, a save backup you can copy and paste, and clearer feedback (floating gains, a level-up flash, time-until-full on Energy / Stamina / Health). v0.5 deepened the economy (ranked training, region-tiered loot you can sell, odds-based bouts, quest requirements); v0.4 added Regions, Bosses, Knight Band and Collections.
 
 ## Resources
 
@@ -20,6 +20,43 @@ The rise of a dark magician, in the spirit of old Facebook *Mafia Wars*. Cast ou
 - Energy regenerates about every **12s**; Stamina about every **18s** (slower, more Mafia Wars–like).
 - Quest cooldowns are **short on early jobs**, **long on late jobs** (up to a few minutes).
 - Fight opponent cooldowns are longer too.
+
+## v2.5 — Factions, forge and festivals
+
+### Factions and crossroads
+Three powers watch the magician rise: **the Covens** (the witches of the Witchwood and the gutter-covens), **the Restless Dead** (liches, ghosts and the buried legions) and **the Order of the Pale Flame** (the College's witch-hunters, some of them for sale).
+
+- From Level 5, every **20 schemes** bring a **crossroads**: a short situation at the top of the Schemes tab with two choices. The choice you make raises one faction's standing by 10 and lowers its rival's by 10, and pays gold or XP by your level. The card never blocks play; a dot on the Schemes tab marks it, and only one waits at a time.
+- Twelve crossroads, from a Pale Flame sergeant in Hollowmere (Level 5) to a door into the Black Spire (Level 45). The same one isn't offered again until four others have been.
+- Standing runs from −100 to +100: Hostile, Wary, Neutral, Known (10), **Trusted (30)** and **Sworn (60)**. Trusted and Sworn earn perks:
+
+| Faction | Trusted (30) | Sworn (60) |
+|---|---|---|
+| The Covens | +6% XP | Mana returns 8% faster |
+| The Restless Dead | +7% attack | +10% defense |
+| The Order of the Pale Flame | +12% gold | another +12% gold |
+
+- **Balance:** simulated players (`FACTION=covens|dead|order EMPOWER=1 node tools/balance-sim.js …`) reach Level 30 faster than one who never picks a side: Covens 17.9%, Dead 15.6%, Order 8.8%, of which about 6% is empowering alone. The Covens and the Dead speed levelling (Mana and XP; attack and defense); the Order pays in gold instead (its simulated player ended with about 3.4× the gold of the baseline). The first numbers (+10% XP and Mana 25% faster for the Covens, a crossroads every 12 schemes) made the Covens 28% faster, so perks were cut and crossroads spaced out.
+- Every choice is zero-sum between two factions, so you can't be Sworn to all three. The **Factions** tab (between Thralls and Lairs) shows each faction's standing, tier and perks. Standing is kept through rebirth.
+- Achievements: **A Choice at the Crossroads** (first choice, 200 gold) and **Sworn** (5,000 gold).
+- Content lives in `FACTIONS` and `CROSSROADS` in `content.js`; a content test checks every crossroads sets two different rival factions against each other and pays gold or XP.
+
+### Empowered gear
+In the Hoard, **Empower** melts a spare copy of an item and gold into it. Each rank adds 20% of the item's own bonuses, up to **rank 5** (double). Rank *n* costs the item's value × 2*n* gold, so an Ebony Staff (worth 120) costs 240, 480, 720, 960 and 1,200. The card shows stars and the empowered bonuses next to the originals; the button's tooltip says what the next rank gives. Selling the last copy loses the rank, and ranks reset with the hoard on rebirth. Achievement: **Master Artificer** (rank 5, 3,000 gold). Formulas: `empowerCost` and `empoweredEffect` in `formulas.js`.
+
+### Festivals
+Three more fill the longest gaps in the year, for eight in all: **Feast of Candles** (Feb 1–14, the Candle-Wraith, Wraith-Wax Stub: +10 defense, +4% XP), **The Thaw** (Mar 18–31, the Meltwater Drowner, First Thaw-Bloom: +7% gold) and **Night of Falling Stars** (Aug 8–20, the Star-Reader, Fallen Starstone: +15 attack, +4% gold). Festivals now wait until **Level 5**, when the champion is a fair fight. Achievement: **The Wheel of the Year** (claim 8 talismans, 8,000 gold).
+
+### A smoother start
+- A new **Chapter 2, A Wand of Your Own**: buy the Blackthorn Wand before the first duel (without it a new magician wins about 16% of duels against the first foe). Chapters are now 22; returning players are credited as usual.
+- Once you've read the current chapter, the story bar's button takes you where its goal is done (**Go to Sanctum**, **Go to Duels**…).
+- With festivals waiting until Level 5, a new player sees only the guide, the nightly tithe and the story bar above the tabs. The Thralls stat mentions lieutenants only once one can be recruited.
+
+### Sigils and atmosphere
+`art.js` holds hand-drawn line sigils (inline SVG in `currentColor`) for the five regions, five nemeses and three factions, shown beside the region description and on nemesis and faction cards. The sky's glow and a few slow drifting motes follow the region you scheme in: violet sparks in Hollowmere, fireflies in the Witchwood, embers in the Ashen Wastes, bubbles in the Drowned Archive, cold stars at the Black Spire. The motes stop for `prefers-reduced-motion`, and the game runs without `art.js` if it fails to load.
+
+### Save
+`saveVersion` is 12: `factions: { standing, pending, sinceLast, choices, recent }` and `gearRanks: { itemId: rank }`. Older saves get both with defaults and one chronicle line. A save still carrying Ruin Wars' default name, **Knight**, is renamed **Magician** on load (a name you chose is kept).
 
 ## v2.4 — Polish pass
 
@@ -46,11 +83,11 @@ The dark-magician game split off from Ruin Wars into this repo, under its own na
 ## v2.2 — The Tale and the Black Spire
 
 ### The story
-21 chapters in five acts take the magician from the gutters of Hollowmere to the top of the Black Spire, where the Archmage of the White College signed their expulsion. The current chapter, its goal and progress sit in a bar under the stats; **Read** opens **The Tale** in the Chronicle, which shows every finished chapter and the current one (later chapters stay hidden). Finishing a chapter pays gold and opens the next; the last one shows an epilogue.
+22 chapters in five acts take the magician from the gutters of Hollowmere to the top of the Black Spire, where the Archmage of the White College signed their expulsion. The current chapter, its goal and progress sit in a bar under the stats; **Read** opens **The Tale** in the Chronicle, which shows every finished chapter and the current one (later chapters stay hidden). Finishing a chapter pays gold and opens the next; the last one shows an epilogue.
 
 | Act | Chapters | Goals |
 |-----|----------|-------|
-| I · Hollowmere | Cast Out · A Voice in the Drains · A Name in the Circle · The Burning Ledger | first scheme; Bind a Sewer Imp; 10 duels won; Steal the Expulsion Ledger |
+| I · Hollowmere | Cast Out · A Wand of Your Own · A Voice in the Drains · A Name in the Circle · The Burning Ledger | first scheme; buy the Blackthorn Wand; Bind a Sewer Imp; 10 duels won; Steal the Expulsion Ledger |
 | II · The Witchwood | Under the Hanging Lanterns · The Witch of the Weir · The Warrant · The Coven Mother · What You Are | Level 10; the Weir ×5; the Witch-Hunter General; the Coven Mother's Glamours; the Root-Bound Grimoire |
 | III · The Ashen Wastes | The Cinder Road · An Army of the Dead · The Lich of Ashvault · The Obsidian Throne · Wyrmsong | Level 20; 25 thralls; the Lich; Claim the Obsidian Throne; the Bone Wyrm |
 | IV · The Drowned Archive | Under the Grey Sea · A Reader's Ticket · The Founder · The First Spell | Level 35; Wake the Librarians ×5; the Drowned Archmage; Read the First Spell |
@@ -389,7 +426,9 @@ npm run test:browser        # browser tests: e2e/*.e2e.js
 - `tests/content.test.js` — sanity checks on `content.js`: unique ids, quests in real regions with a story beat at every mastery rank, band requirements reachable at each quest's level, 3 weapons / 3 armors / 3 relics per region, every boss drops a real unique and collection piece and has a legend, named-knight boss bonuses point at real bosses, foes get harder and pay more with level, achievements use known checks with reachable targets, and seasonal events have valid dates, real rewards and never overlap.
 
 - `e2e/game.e2e.js` — a new game and its first scheme, tabs and the remembered tab, rename / reset with `prompt()` / `confirm()` blocked, backup round-trip and rejection, an old Arthurian-era save loading with its progress and new-theme Secrets, a festival won and claimed under a fake clock, rebirth keeping Infamy / achievements / spell mastery, and the service worker reloading the game offline.
-- `e2e/story.e2e.js` — Chapter 1 to 2 and reading clears the dot, a returning save credited with chapters 1–12, the Black Spire's schemes and nemesis at Level 45, and the Archmage ending the tale with the epilogue.
+- `e2e/story.e2e.js` — Chapter 1, the wand chapter and its Go to Sanctum signpost, reading clears the dot, a returning save credited with chapters 1–13, the Black Spire's schemes and nemesis at Level 45, and the Archmage ending the tale with the epilogue.
+- `e2e/factions.e2e.js` — a crossroads appearing after 20 schemes and a choice moving two factions, crossroads waiting for Level 5 and one at a time, a perk earned at Trusted and shown in the Factions tab, standing kept through rebirth.
+- `e2e/hoard.e2e.js` — empowering with a spare and gold, the rank's bonuses, rank 5 and Master Artificer, and selling the last copy losing its rank.
 - `e2e/spells.e2e.js` — spells unlocking by level, Hex raising odds and being spent by one duel, Quicken / Blood Mending / Gilded Tongue, mastery potency and buffs wearing off, First Incantation.
 
 Every browser test also fails on any console or page error. `e2e/helpers.js` serves the repo on a local port and blocks Google Fonts so no test needs the network.
@@ -402,7 +441,7 @@ Run the unit tests after any balance edit in `content.js`. GitHub Actions runs b
 
 The game is a static site, ready to host anywhere. To publish it later on **GitHub Pages** (which needs a public repo, or a paid GitHub plan for a private one), add two jobs after `test` in `ci.yml`:
 
-- **build-site** (on pushes to `main` only): copy `index.html styles.css formulas.js content.js game.js manifest.webmanifest sw.js` and `icons/` into `_site/`, run `sed -i "s/__BUILD__/${GITHUB_SHA::7}/" _site/sw.js` so each release gets a fresh offline cache, then `actions/upload-pages-artifact@v3` with `path: _site`.
+- **build-site** (on pushes to `main` only): copy `index.html styles.css formulas.js content.js art.js game.js manifest.webmanifest sw.js` and `icons/` into `_site/`, run `sed -i "s/__BUILD__/${GITHUB_SHA::7}/" _site/sw.js` so each release gets a fresh offline cache, then `actions/upload-pages-artifact@v3` with `path: _site`.
 - **deploy**: `actions/deploy-pages@v4` with `pages: write` and `id-token: write` permissions and the `github-pages` environment.
 
 Then set **Settings → Pages → Source** to **GitHub Actions**. (This workflow ran for v0.8–v0.9; see the history of `.github/workflows/ci.yml` before v1.0 for the exact jobs.) Installing as an app and offline play only work on such a hosted copy. Saves live in each browser, so a save from another copy of the game (a local file or the Claude artifact) moves over with **Backup → Copy my save / Load pasted save**.
@@ -411,10 +450,11 @@ Then set **Settings → Pages → Source** to **GitHub Actions**. (This workflow
 
 | File | Role |
 |------|------|
-| `index.html` | Layout: header (rename / backup / reset dialogs), stats (incl. band), tab bar + ticker, then one tagged `data-panel` section per tab: quests + region tabs, Lists + Chapel, bosses, knight band, holdings, inventory, collections, shop, renown, chronicle + legends. Loads `formulas.js`, `content.js`, then `game.js`. |
+| `index.html` | Layout: header (rename / backup / reset dialogs), stats (incl. band), tab bar + ticker, then one tagged `data-panel` section per tab: quests + region tabs, Lists + Chapel, bosses, knight band, holdings, inventory, collections, shop, renown, chronicle + legends. Loads `formulas.js`, `content.js`, `art.js`, then `game.js`. |
 | `styles.css` | Dark parchment / stone theme |
-| `content.js` | **Content tables** (pure data, tune balance here), including `SPELLS`: `REGIONS` / `QUESTS` / `STORY_BEATS` / `BOSS_LEGENDS` / `MASTERY_BONUSES` / `FOES` / `HEALS` / `UPGRADES` / `RANKED_UPGRADES` / `HOLDINGS` / `LOOT` / `COLLECTIONS` / `BOSSES` / `NAMED_KNIGHTS` / `ACHIEVEMENTS` / `EVENTS`. Exposed as `window.RuinWarsContent`. |
-| `formulas.js` | **Pure formulas** with no DOM or game state: `xpForLevel`, `questCooldownMs`, `fightWinChance(attack, power)`, `upsetMultiplier`, `soakDamage(dmg, defense)`, `rankedUpgradeCost(def, rank)`, `bandCap(level)`, `hireCost(recruits)`, `msUntilFull`, `encodeBackup` / `decodeBackup`. Exposed as `window.RuinWarsFormulas`. |
+| `content.js` | **Content tables** (pure data, tune balance here), including `SPELLS`: `REGIONS` / `QUESTS` / `STORY_BEATS` / `BOSS_LEGENDS` / `MASTERY_BONUSES` / `FOES` / `HEALS` / `UPGRADES` / `RANKED_UPGRADES` / `HOLDINGS` / `LOOT` / `COLLECTIONS` / `BOSSES` / `NAMED_KNIGHTS` / `ACHIEVEMENTS` / `EVENTS` / `CHAPTERS` / `FACTIONS` / `CROSSROADS`. Exposed as `window.ExpelledContent`. |
+| `formulas.js` | **Pure formulas** with no DOM or game state: `xpForLevel`, `questCooldownMs`, `fightWinChance(attack, power)`, `upsetMultiplier`, `soakDamage(dmg, defense)`, `rankedUpgradeCost(def, rank)`, `bandCap(level)`, `hireCost(recruits)`, `msUntilFull`, `encodeBackup` / `decodeBackup`, `empowerCost` / `empoweredEffect`. Exposed as `window.ExpelledFormulas`. |
+| `art.js` | Sigils: inline SVG line drawings for regions, nemeses and factions. Exposed as `window.ExpelledArt`. |
 | `game.js` | Game rules, state, save/load and rendering, built on the two files above |
 | `tests/` | `node --test` unit suites for the formulas and content (see Tests) |
 | `e2e/` | Browser tests with Playwright (see Tests) |
@@ -442,9 +482,9 @@ v2.3 saves to `expelled_save_v1` with `saveVersion: 11`. With no Expelled save, 
 
 ## Suggested next features
 
-1. Factions (the covens, the dead, the Order of the Pale Flame) with standing that choices in schemes change.
-2. Gear upgrades: spend gold and duplicates to raise an item's stats.
-3. Drawn art for regions and nemeses, and ambient effects.
+1. Faction rewards to spend standing on: a sworn faction's own scheme, lieutenant or talisman.
+2. Crossroads that remember earlier choices, so the factions' story branches.
+3. A music theme per region, to match the region skies.
 
 ## License
 

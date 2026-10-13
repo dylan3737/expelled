@@ -4,7 +4,9 @@
  *
  * Usage (serve the game first, e.g. `npx --yes serve -l 8765 .`):
  *   node tools/balance-sim.js http://localhost:8765/ <maxGameHours> <out.json>
- * Env: STOP_LEVEL (default 31); SPELLS=1 casts every ready spell, SPELLS=smart only useful ones. Needs Playwright (a dev dependency).
+ * Env: STOP_LEVEL (default 31); SPELLS=1 casts every ready spell, SPELLS=smart only useful ones;
+ * FACTION=covens|dead|order answers every crossroads for that faction where it can (unset: never answers);
+ * EMPOWER=1 empowers the equipped focus and vestments before selling spares. Needs Playwright (a dev dependency).
  *
  * The bot plays nonstop and greedily (buys every upgrade, hires to cap, heals under 60% Health),
  * so its times are a lower bound for an attentive player.
@@ -15,7 +17,8 @@ const MAX_H = Number(maxHoursArg || 60);
 const STEP_MS = 10000;
 
 // One bot turn, run inside the page. Returns a snapshot for the log.
-function botTurn(useSpells) {
+function botTurn(opts) {
+  const useSpells = opts.spells;
   const R = window.Expelled;
   const $ = (sel) => document.querySelector(sel);
   const $$ = (sel) => [...document.querySelectorAll(sel)];
@@ -48,7 +51,25 @@ function botTurn(useSpells) {
       const b = $('[data-action=equip][data-id="' + owned[0].id + '"]'); if (b) b.click();
     }
   });
+  if (opts.empower) {
+    s = st();
+    ['weapon', 'armor'].forEach((slot) => {
+      const id = s.equipped[slot];
+      const b = id && $('[data-action=empower][data-id="' + id + '"]');
+      if (b && !b.disabled) b.click();
+    });
+  }
   const spares = $('[data-action=sell-spares]'); if (spares) spares.click();
+  if (opts.faction) {
+    // Side with the chosen faction when a crossroads offers it; otherwise take the first choice.
+    tab('quests');
+    s = st();
+    const cr = s.factions.pending && R.CROSSROADS.find((c) => c.id === s.factions.pending);
+    if (cr) {
+      const i = Math.max(0, cr.options.findIndex((o) => o.faction === opts.faction));
+      const b = $('[data-action=crossroads][data-id="' + i + '"]'); if (b) b.click();
+    }
+  }
   enabled('[data-action=redeem]').forEach((b) => b.click());
   tab('armory');
   for (let i = 0; i < 40; i++) {
@@ -147,7 +168,7 @@ function botTurn(useSpells) {
   for (let step = 0; step * STEP_MS < MAX_H * 3600000; step++) {
     await p.clock.fastForward(STEP_MS);
     const mode = process.env.SPELLS === 'smart' ? 'smart' : process.env.SPELLS === '1';
-    const snap = await p.evaluate(botTurn, mode);
+    const snap = await p.evaluate(botTurn, { spells: mode, faction: process.env.FACTION || null, empower: process.env.EMPOWER === '1' });
     const h = +((step + 1) * STEP_MS / 3600000).toFixed(3);
     if (!last || snap.level !== last.level) milestones['level ' + snap.level] = h;
     Object.keys(snap.kills).forEach((k) => { if (snap.kills[k] > 0 && !milestones['kill ' + k]) milestones['kill ' + k] = h; });
