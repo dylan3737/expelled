@@ -192,7 +192,30 @@
     return 1 + 0.25 * rank;
   }
 
+  const EMPOWER_MAX = 5; // highest rank an item can be empowered to
+  const EMPOWER_STEP = 0.2; // each rank adds 20% of the item's own bonuses
+
+  /** Gold to empower an item from this rank to the next (a spare copy is also used); null at the top. */
+  function empowerCost(value, rank) {
+    if (rank >= EMPOWER_MAX) return null;
+    return value * 2 * (rank + 1);
+  }
+
+  /** An item's effect at an empowerment rank: flat bonuses rounded, percentages kept to a tenth of a percent. */
+  function empoweredEffect(effect, rank) {
+    const m = 1 + EMPOWER_STEP * rank;
+    const out = {};
+    Object.keys(effect || {}).forEach(function (k) {
+      const v = effect[k] * m;
+      out[k] = k === "attack" || k === "defense" ? Math.round(v) : Math.round(v * 1000) / 1000;
+    });
+    return out;
+  }
+
   return {
+    EMPOWER_MAX: EMPOWER_MAX,
+    empowerCost: empowerCost,
+    empoweredEffect: empoweredEffect,
     DAILY_STREAK_MAX: DAILY_STREAK_MAX,
     SPELL_RANK_CASTS: SPELL_RANK_CASTS,
     spellRank: spellRank,

@@ -132,7 +132,7 @@ test("holdings belong to known regions", () => {
 });
 
 test("achievements use known checks with sensible targets", () => {
-  const types = ["questsDone", "questsMastered", "level", "fightWins", "upsets", "bossKill", "band", "namedKnights", "holdings", "collections", "trainingRanks", "renown", "dailyStreak", "eventRewards", "spellCasts", "spellsMastered", "chapters", "crossroads", "factionsSworn"];
+  const types = ["questsDone", "questsMastered", "level", "fightWins", "upsets", "bossKill", "band", "namedKnights", "holdings", "collections", "trainingRanks", "renown", "dailyStreak", "eventRewards", "spellCasts", "spellsMastered", "chapters", "crossroads", "factionsSworn", "empowerMax"];
   const allowAll = ["questsMastered", "namedKnights", "holdings", "collections", "chapters"];
   C.ACHIEVEMENTS.forEach((a) => {
     assert.ok(a.name && a.desc, a.id + ": needs a name and description");

@@ -166,3 +166,13 @@ test("spell mastery ranks and potency", () => {
   assert.equal(F.spellRank(5000), 3);
   assert.deepEqual([0, 1, 2, 3].map(F.spellPotency), [1, 1.25, 1.5, 1.75]);
 });
+
+test("empowering: cost doubles the item's value per rank, and each rank adds 20%", () => {
+  assert.equal(F.EMPOWER_MAX, 5);
+  assert.deepEqual([0, 1, 2, 3, 4].map((r) => F.empowerCost(120, r)), [240, 480, 720, 960, 1200]);
+  assert.equal(F.empowerCost(120, 5), null, "no rank past the top");
+  assert.deepEqual(F.empoweredEffect({ attack: 15 }, 0), { attack: 15 });
+  assert.deepEqual(F.empoweredEffect({ attack: 15, defense: 5 }, 5), { attack: 30, defense: 10 }, "rank 5 doubles");
+  assert.deepEqual(F.empoweredEffect({ goldMult: 0.03, xpMult: 0.05 }, 1), { goldMult: 0.036, xpMult: 0.06 });
+  assert.deepEqual(F.empoweredEffect({ attack: 4 }, 1), { attack: 5 }, "flat bonuses round to whole numbers");
+});

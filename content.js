@@ -2799,6 +2799,13 @@
       gold: 5000,
     },
     {
+      id: "artificer",
+      name: "Master Artificer",
+      desc: "Empower an item to its fifth rank.",
+      check: { type: "empowerMax", target: 1 },
+      gold: 3000,
+    },
+    {
       id: "faithful_vassal",
       name: "A Loyal Cult",
       desc: "Collect the nightly tithe 7 nights in a row.",

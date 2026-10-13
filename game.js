@@ -138,6 +138,7 @@
       holdings: {},
       inventory: {},
       equipped: { weapon: null, armor: null },
+      gearRanks: {}, // item id -> empowerment rank (0-5); reset with the hoard on rebirth
       region: "camelot",
       collections: {},
       collectionsRedeemed: {},
@@ -215,6 +216,29 @@
     return (state.inventory && state.inventory[itemId]) || 0;
   }
 
+  function gearRank(itemId) {
+    return (state.gearRanks && state.gearRanks[itemId]) || 0;
+  }
+
+  /** An item's effect, raised by its empowerment rank. */
+  function itemEffect(item) {
+    return F.empoweredEffect(item.effect, gearRank(item.id));
+  }
+
+  function percentText(mult) {
+    return "+" + Math.round(mult * 1000) / 10 + "%";
+  }
+
+  /** "+18 power, +6 defense, +3.6% gold" for an effect object. */
+  function effectText(effect) {
+    const parts = [];
+    if (effect.attack) parts.push("+" + effect.attack + " power");
+    if (effect.defense) parts.push("+" + effect.defense + " defense");
+    if (effect.goldMult) parts.push(percentText(effect.goldMult) + " gold");
+    if (effect.xpMult) parts.push(percentText(effect.xpMult) + " XP");
+    return parts.join(", ");
+  }
+
   /** The loot def equipped in a slot, if it is still owned. */
   function equippedItem(slot) {
     const id = state.equipped && state.equipped[slot];
@@ -237,13 +261,13 @@
     }
 
     const w = equippedItem("weapon");
-    if (w) applyEffect(w.effect);
+    if (w) applyEffect(itemEffect(w));
     const a = equippedItem("armor");
-    if (a) applyEffect(a.effect);
+    if (a) applyEffect(itemEffect(a));
     // Relics: passive if owned (count > 0)
     LOOT.forEach(function (L) {
       if (L.slot === "relic" && inventoryCount(L.id) > 0) {
-        applyEffect(L.effect);
+        applyEffect(itemEffect(L));
       }
     });
 
@@ -842,6 +866,7 @@
     if (!state.story.done || typeof state.story.done !== "object") state.story.done = {};
     if (typeof state.story.seen !== "string") state.story.seen = null;
     // v2.5 fields
+    if (!state.gearRanks || typeof state.gearRanks !== "object") state.gearRanks = {};
     const fx = state.factions && typeof state.factions === "object" ? state.factions : {};
     state.factions = {
       standing: fx.standing && typeof fx.standing === "object" ? fx.standing : {},
@@ -900,10 +925,16 @@
     if (migratedFrom || oldVersion < 10) {
       addLog("New: the Spellbook. Cast spells with Mana from the Spells tab; your level decides which you know.");
     }
-    if (migratedFrom || oldVersion < SAVE_VERSION) {
+    if (migratedFrom || oldVersion < 11) {
       addLog(
         "New: the main story, and a fifth region, the Black Spire (Level 45). Your current chapter shows under " +
           "your stats; the whole tale is in the Chronicle."
+      );
+    }
+    if (migratedFrom || oldVersion < SAVE_VERSION) {
+      addLog(
+        "New: factions. From Level 5, every few schemes bring a crossroads where you choose a side; see the " +
+          "Factions tab. Spare loot can now empower its twin in the Hoard."
       );
       save();
     }
@@ -1696,6 +1727,7 @@
       return;
     }
     state.inventory[item.id] -= 1;
+    if (state.inventory[item.id] <= 0) delete state.gearRanks[item.id]; // the empowered copy is gone
     state.gold += item.value;
     addLog("Sold " + item.name + " for " + item.value + " gold.");
     save();
@@ -1727,6 +1759,36 @@
     state.gold += totals.gold;
     addLog("Sold " + totals.count + " spare items for " + totals.gold + " gold.");
     save();
+    render();
+  }
+
+  /** Melt a spare copy into an item, with gold, to raise its rank: each rank adds 20% to its bonuses. */
+  function empowerItem(itemId) {
+    const item = getLootDef(itemId);
+    if (!item) return;
+    const rank = gearRank(item.id);
+    const cost = F.empowerCost(item.value, rank);
+    if (cost === null) {
+      addLog(item.name + " is already empowered as far as it can go.");
+    } else if (inventoryCount(item.id) < 2) {
+      addLog("Empowering " + item.name + " uses up a spare copy, and you have only one.");
+    } else if (state.gold < cost) {
+      addLog("Need " + cost + " gold to empower " + item.name + ".");
+    } else {
+      state.inventory[item.id] -= 1;
+      state.gold -= cost;
+      state.gearRanks[item.id] = rank + 1;
+      addLog(
+        "You melt a spare into your " +
+          item.name +
+          ": empowered to rank " +
+          (rank + 1) +
+          " (" +
+          effectText(itemEffect(item)) +
+          ")."
+      );
+      save();
+    }
     render();
   }
 
@@ -2189,6 +2251,7 @@
     daily: claimDaily,
     cast: castSpell,
     "read-story": readStory,
+    empower: empowerItem,
     crossroads: chooseCrossroads,
     "event-fight": doEventFight,
     "event-claim": claimEventReward,
@@ -2825,6 +2888,11 @@
         break;
       case "crossroads":
         cur = state.factions.choices;
+        break;
+      case "empowerMax":
+        cur = Object.keys(state.gearRanks).filter(function (id) {
+          return state.gearRanks[id] >= F.EMPOWER_MAX;
+        }).length;
         break;
       case "factionsSworn":
         cur = FACTIONS.filter(function (f) {
@@ -4611,6 +4679,7 @@
       const count = inventoryCount(item.id);
       if (count <= 0) return;
       any = true;
+      const rank = gearRank(item.id);
       const isEquipped =
         (item.slot === "weapon" && state.equipped.weapon === item.id) ||
         (item.slot === "armor" && state.equipped.armor === item.id);
@@ -4622,6 +4691,7 @@
         "<h3>" +
         escapeHtml(item.name) +
         (count > 1 ? ' <span class="badge">×' + count + "</span>" : "") +
+        (rank ? '<span class="badge empower-badge" title="Empowered to rank ' + rank + '">' + "★".repeat(rank) + "</span>" : "") +
         (isEquipped ? '<span class="badge equip-badge">Equipped</span>' : "") +
         '<span class="badge slot-badge">' +
         escapeHtml(SLOT_LABELS[item.slot] || item.slot) +
@@ -4631,7 +4701,12 @@
           : "") +
         "</h3>" +
         '<p class="card-meta">' +
-        escapeHtml(item.desc) +
+        (rank
+          ? '<span class="empowered">' + escapeHtml(effectText(itemEffect(item))) + "</span>" +
+            (item.slot === "relic" ? " (passive)" : "") +
+            " · was " +
+            escapeHtml(effectText(item.effect))
+          : escapeHtml(item.desc)) +
         ' · <span class="reward-gold">sells for ' +
         item.value +
         " gold</span></p>" +
@@ -4664,6 +4739,25 @@
         note.disabled = true;
         actions.appendChild(note);
       }
+
+      const empCost = F.empowerCost(item.value, rank);
+      const empBtn = document.createElement("button");
+      empBtn.type = "button";
+      empBtn.className = "btn";
+      empBtn.textContent = empCost === null ? "★ Max" : "Empower " + empCost + "g";
+      empBtn.disabled = empCost === null || count < 2 || state.gold < empCost;
+      empBtn.title =
+        empCost === null
+          ? "Empowered as far as it can go"
+          : "Melt a spare copy and " +
+            empCost +
+            " gold into it: rank " +
+            (rank + 1) +
+            ", " +
+            effectText(F.empoweredEffect(item.effect, rank + 1)) +
+            (count < 2 ? " (needs a spare copy)" : "");
+      actionButton(empBtn, "empower", item.id);
+      actions.appendChild(empBtn);
 
       const sellBtn = document.createElement("button");
       sellBtn.type = "button";

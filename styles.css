@@ -1418,3 +1418,14 @@ body {
 .faction-perks li.got {
   color: var(--text);
 }
+
+/* --- Empowered gear (v2.5) --- */
+
+.empower-badge {
+  color: var(--gold);
+  letter-spacing: 0.05em;
+}
+
+.card-meta .empowered {
+  color: var(--gold);
+}
