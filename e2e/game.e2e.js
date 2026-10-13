@@ -201,6 +201,23 @@ test("festivals wait until Level 5, so a new magician's start stays uncluttered"
   await at5.ctx.close();
 });
 
+test("eight festivals turn the year: the new ones run in February, March and August", async () => {
+  const at = async (month, day) => {
+    const { ctx, page, errors } = await openGame(browser, server.url, {
+      time: new Date(2027, month, day, 12),
+      save: { level: 20, saveVersion: 12 },
+    });
+    const text = (await page.isVisible("#event-bar")) ? await page.textContent("#event-bar") : "";
+    assert.deepEqual(errors, []);
+    await ctx.close();
+    return text;
+  };
+  assert.match(await at(1, 7), /Feast of Candles/);
+  assert.match(await at(2, 25), /The Thaw/);
+  assert.match(await at(7, 12), /Night of Falling Stars/);
+  assert.equal(await at(0, 20), "", "no festival in late January");
+});
+
 test("Harvest Moon runs in October: ten wins claim its talisman", async () => {
   const { ctx, page, errors } = await openGame(browser, server.url, {
     time: new Date(2026, 9, 7, 12),

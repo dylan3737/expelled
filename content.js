@@ -1656,6 +1656,36 @@
       unique: true,
       effect: { goldMult: 0.05, xpMult: 0.05 },
     },
+    {
+      id: "candle_stub",
+      name: "Wraith-Wax Stub",
+      slot: "relic",
+      desc: "+10 defense, +4% XP (festival talisman, passive)",
+      weight: 0,
+      value: 2500,
+      unique: true,
+      effect: { defense: 10, xpMult: 0.04 },
+    },
+    {
+      id: "thaw_bloom",
+      name: "First Thaw-Bloom",
+      slot: "relic",
+      desc: "+7% gold (festival talisman, passive)",
+      weight: 0,
+      value: 2500,
+      unique: true,
+      effect: { goldMult: 0.07 },
+    },
+    {
+      id: "star_shard",
+      name: "Fallen Starstone",
+      slot: "relic",
+      desc: "+15 attack, +4% gold (festival talisman, passive)",
+      weight: 0,
+      value: 2500,
+      unique: true,
+      effect: { attack: 15, goldMult: 0.04 },
+    },
   ];
 
   /**
@@ -2192,6 +2222,28 @@
    */
   const EVENTS = [
     {
+      id: "candlemas",
+      name: "Feast of Candles",
+      start: "02-01",
+      end: "02-14",
+      desc: "The College lights ten thousand candles to call back the spring, and every one of them casts a shadow.",
+      foeName: "Candle-Wraith",
+      foeDesc: "Made of every shadow the College's candles throw; snuff one and three more gutter into life.",
+      tokenGoal: 10,
+      rewardId: "candle_stub",
+    },
+    {
+      id: "thaw",
+      name: "The Thaw",
+      start: "03-18",
+      end: "03-31",
+      desc: "The ice breaks on Hollowmere's canals, and something comes up with the meltwater.",
+      foeName: "Meltwater Drowner",
+      foeDesc: "Green, patient and very cold. It has waited under every bridge in the city since the first frost.",
+      tokenGoal: 10,
+      rewardId: "thaw_bloom",
+    },
+    {
       id: "beltane",
       name: "Walpurgis Night",
       start: "04-28",
@@ -2212,6 +2264,17 @@
       foeDesc: "Fights in his own shadow, which is larger than he is.",
       tokenGoal: 10,
       rewardId: "midsummer_favor",
+    },
+    {
+      id: "starfall",
+      name: "Night of Falling Stars",
+      start: "08-08",
+      end: "08-20",
+      desc: "Stars fall over the Ashen Wastes, and a star-reader waits in the newest crater, collecting them.",
+      foeName: "Star-Reader",
+      foeDesc: "Wears a robe sewn with fallen stars. She reads your future before you strike, and fights accordingly.",
+      tokenGoal: 10,
+      rewardId: "star_shard",
     },
     {
       id: "harvest",
@@ -2769,6 +2832,13 @@
       desc: "Claim a festival's talisman.",
       check: { type: "eventRewards", target: 1 },
       gold: 2000,
+    },
+    {
+      id: "wheel_of_year",
+      name: "The Wheel of the Year",
+      desc: "Claim 8 festival talismans.",
+      check: { type: "eventRewards", target: 8 },
+      gold: 8000,
     },
     {
       id: "first_incantation",
