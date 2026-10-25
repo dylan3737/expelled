@@ -2,7 +2,7 @@
 
 The rise of a dark magician, in the spirit of old Facebook *Mafia Wars*. Cast out of the White College, you scheme your way up from the gutters of Hollowmere: spend **Mana** on schemes across **four regions** (with **mastery** and **secrets**), **Will** on duels and **nemeses**, manage **Health**, bind **thralls**, earn **gold** and **XP**, buy **lairs** for passive income, hoard **loot**, bind **grimoires**, and be reborn for **Infamy**. No backend: pure static HTML/CSS/JS with `localStorage` saves.
 
-**Status:** private, not published. Open `index.html` locally to play (see [How to run locally](#how-to-run-locally)); [Hosting](#hosting) explains how to publish it later.
+**Status:** published to GitHub Pages from `main` by CI (see [Hosting](#hosting)). You can also open `index.html` locally to play (see [How to run locally](#how-to-run-locally)).
 
 **Current version: v2.5** — **factions** with crossroads choices, **empowered gear**, three more **festivals**, a smoother **first five minutes**, and **sigils** and region skies (see [v2.5](#v25--factions-forge-and-festivals)). v2.4 was a polish pass: clearer rank badges and bonus text, a tab bar that shows it scrolls on phones, toasts that no longer cover the tabs, and a compact achievements grid (see [v2.4](#v24--polish-pass)). v2.3 gave the game its own name and repo. Until v2.2 it was the dark-magician branch of **Ruin Wars**; Ruin Wars itself went back to its Arthurian v1.0 in its own repo (see [v2.3](#v23--expelled)). v2.2 added a **main story** in 21 chapters and a fifth region, **the Black Spire** (see [v2.2](#v22--the-tale-and-the-black-spire)). v2.1 added a **Spellbook** of eight spells cast with Mana (see [v2.1](#v21--the-spellbook)), and browser tests that run in CI. v2.0 rethemed the game from Arthurian legend to **the adventures of a dark magician** (see [v2.0](#v20--the-dark-magician)); mechanics, numbers and saves are unchanged. v1.0 added a fourth region (Lyonesse, now the Drowned Archive, Level 35), seasonal tourneys (now festivals), a balance pass driven by a simulated player (levels now take much longer), and fixes from a code review. v0.9 added a first-visit guide, achievements, a daily tribute, music and an installable app; v0.8 added seven new foes in The Lists, sound effects, and tests + deploys on GitHub Actions; v0.7 brought a gentler start and a longer end: a softer first foe plus a Tempered Blade tip, a third boss (**the Questing Beast**), and **Renown** (prestige). v0.6 made it easier to play: tabs instead of one long page, a save backup you can copy and paste, and clearer feedback (floating gains, a level-up flash, time-until-full on Energy / Stamina / Health). v0.5 deepened the economy (ranked training, region-tiered loot you can sell, odds-based bouts, quest requirements); v0.4 added Regions, Bosses, Knight Band and Collections.
 
@@ -437,14 +437,12 @@ Run the unit tests after any balance edit in `content.js`. GitHub Actions runs b
 
 ## Hosting
 
-`.github/workflows/ci.yml` runs the unit tests and the browser tests on every push and pull request. The game isn't published while the repo is private.
+`.github/workflows/ci.yml` runs the unit tests and the browser tests on every push and pull request. When both pass on a push to `main`, two more jobs publish the game to **GitHub Pages**:
 
-The game is a static site, ready to host anywhere. To publish it later on **GitHub Pages** (which needs a public repo, or a paid GitHub plan for a private one), add two jobs after `test` in `ci.yml`:
-
-- **build-site** (on pushes to `main` only): copy `index.html styles.css formulas.js content.js art.js game.js manifest.webmanifest sw.js` and `icons/` into `_site/`, run `sed -i "s/__BUILD__/${GITHUB_SHA::7}/" _site/sw.js` so each release gets a fresh offline cache, then `actions/upload-pages-artifact@v3` with `path: _site`.
+- **build-site**: copies `index.html styles.css formulas.js content.js art.js game.js manifest.webmanifest sw.js` and `icons/` into `_site/`, runs `sed -i "s/__BUILD__/${GITHUB_SHA::7}/" _site/sw.js` so each release gets a fresh offline cache, then uploads `_site` with `actions/upload-pages-artifact@v3`. A new game file must be added to this `cp` line and to `APP_FILES` in `sw.js`.
 - **deploy**: `actions/deploy-pages@v4` with `pages: write` and `id-token: write` permissions and the `github-pages` environment.
 
-Then set **Settings → Pages → Source** to **GitHub Actions**. (This workflow ran for v0.8–v0.9; see the history of `.github/workflows/ci.yml` before v1.0 for the exact jobs.) Installing as an app and offline play only work on such a hosted copy. Saves live in each browser, so a save from another copy of the game (a local file or the Claude artifact) moves over with **Backup → Copy my save / Load pasted save**.
+GitHub Pages needs a public repo, or a paid GitHub plan for a private one, and **Settings → Pages → Source** set to **GitHub Actions**. Installing as an app and offline play only work on such a hosted copy. Saves live in each browser, so a save from another copy of the game (a local file or the Claude artifact) moves over with **Backup → Copy my save / Load pasted save**.
 
 ## Code layout
 
@@ -460,7 +458,7 @@ Then set **Settings → Pages → Source** to **GitHub Actions**. (This workflow
 | `e2e/` | Browser tests with Playwright (see Tests) |
 | `tools/balance-sim.js` | Simulated player for balance checks (see Balance pass) |
 | `manifest.webmanifest`, `sw.js`, `icons/` | App install and offline play on the hosted site (see Install and offline play) |
-| `.github/workflows/ci.yml` | Tests on every push / PR |
+| `.github/workflows/ci.yml` | Tests on every push / PR; publishes `main` to GitHub Pages |
 
 Both `content.js` and `formulas.js` are plain scripts that also work with `require()`, which is how the tests load them.
 
